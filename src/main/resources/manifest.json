@@ -1,0 +1,15 @@
+{
+  "Group": "Nitrado",
+  "Name": "WebServer",
+  "Version": "1.0.0",
+  "Authors": [
+    {
+      "Name": "André Becker",
+      "Email": "andre.becker@nitrado.net",
+      "Url": "https://www.nitrado.net"
+    }
+  ],
+  "Website": "https://www.nitrado.net",
+  "Main": "net.nitrado.hytale.plugins.webserver.WebServer",
+  "ServerVersion": "*"
+}
