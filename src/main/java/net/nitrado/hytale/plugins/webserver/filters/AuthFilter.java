@@ -5,9 +5,11 @@ import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.nitrado.hytale.plugins.webserver.auth.AuthProvider;
+import net.nitrado.hytale.plugins.webserver.auth.HytaleUserPrincipal;
 import net.nitrado.hytale.plugins.webserver.auth.UserPrincipalRequestWrapper;
 
 import java.io.IOException;
+import java.util.UUID;
 
 public class AuthFilter implements Filter {
 
@@ -43,8 +45,9 @@ public class AuthFilter implements Filter {
             }
         }
 
-        // forward without user principal (i.e. anonymous user)
-        filterChain.doFilter(request, response);
+        // We are not authenticated, so we map to the anonymous user
+        var wrapped = new UserPrincipalRequestWrapper(req, new HytaleUserPrincipal(new UUID(0,0)));
+        filterChain.doFilter(wrapped, response);
 
         if (res.getStatus() == HttpServletResponse.SC_UNAUTHORIZED) {
             for (AuthProvider authProvider : authProviders) {

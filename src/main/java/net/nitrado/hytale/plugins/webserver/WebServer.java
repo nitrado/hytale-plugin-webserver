@@ -1,15 +1,11 @@
 package net.nitrado.hytale.plugins.webserver;
 
-import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.command.CommandManager;
 import com.hypixel.hytale.server.core.permissions.PermissionsModule;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
-import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.server.core.plugin.PluginBase;
 import com.hypixel.hytale.server.core.util.Config;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import net.nitrado.hytale.plugins.webserver.auth.AuthProvider;
 import net.nitrado.hytale.plugins.webserver.auth.BasicAuthProvider;
 import net.nitrado.hytale.plugins.webserver.auth.store.CombinedCredentialValidator;
@@ -74,6 +70,10 @@ public class WebServer extends JavaPlugin {
         }
     }
 
+    protected void setupAnonymousUser() {
+        PermissionsModule.get().addUserToGroup(new UUID(0,0), "ANONYMOUS");
+    }
+
     protected void setupCommands() {
         CommandManager.get().register(new WebServerCommand(this));
     }
@@ -97,6 +97,11 @@ public class WebServer extends JavaPlugin {
     }
 
     @Override
+    protected void start() {
+        this.setupAnonymousUser();
+    }
+
+    @Override
     protected void shutdown() {
         try {
             this.server.stop();
@@ -105,7 +110,10 @@ public class WebServer extends JavaPlugin {
         }
     }
 
-    public HandlerBuilder createHandlerBuilder(String prefix) throws PrefixAlreadyRegisteredException{
+    public HandlerBuilder createHandlerBuilder(PluginBase plugin) throws PrefixAlreadyRegisteredException{
+        var id = plugin.getIdentifier();
+        var prefix = String.format("/%s/%s", id.getGroup().toLowerCase(), id.getName().toLowerCase());
+
         if (this.hasHandlerFor(prefix)) {
             throw new PrefixAlreadyRegisteredException();
         }
@@ -134,6 +142,10 @@ public class WebServer extends JavaPlugin {
     }
 
     protected void register(Handler handler, Object... beans) throws Exception {
+        if (handler instanceof ContextHandler contextHandler) {
+            getLogger().atInfo().log("registered handler at prefix: %s", contextHandler.getContextPath());
+        }
+
         contexts.addHandler(handler);
         for (var o : beans) {
             this.server.addBean(o);

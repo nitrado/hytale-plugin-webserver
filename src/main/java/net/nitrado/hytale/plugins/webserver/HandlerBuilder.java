@@ -20,6 +20,7 @@ public class HandlerBuilder {
 
     private boolean authenticationRequired;
     private String[] requiredPermissions = new String[0];
+    private String[] requiredPermissionsAny = new String[0];
 
     protected HandlerBuilder(WebServer webServer, String prefix) {
         this.webServer = webServer;
@@ -45,6 +46,11 @@ public class HandlerBuilder {
         return this;
     }
 
+    public HandlerBuilder requireAnyPermissionOf(String ...permissions) {
+        this.requiredPermissionsAny = permissions;
+        return this;
+    }
+
     public void register() throws Exception {
         this.webServer.getLogger().at(Level.INFO).log("Registering handler for " + this.handler.getContextPath());
 
@@ -57,6 +63,10 @@ public class HandlerBuilder {
 
         if (this.requiredPermissions.length > 0) {
             this.handler.addFilter(new PermissionsRequiredFilter(this.requiredPermissions), "/*", java.util.EnumSet.of(jakarta.servlet.DispatcherType.REQUEST));
+        }
+
+        if (this.requiredPermissionsAny.length > 0) {
+            this.handler.addFilter(new PermissionsRequiredFilter(true,  this.requiredPermissionsAny), "/*", java.util.EnumSet.of(jakarta.servlet.DispatcherType.REQUEST));
         }
 
         this.webServer.register(this.handler, this.beans);
