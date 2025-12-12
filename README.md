@@ -113,7 +113,7 @@ public class Query extends JavaPlugin {
 ```
 
 The handler will be automatically registered at `/<plugin_group>/<plugin_name>/`, lowercased. So `/nitrado/query/` for
-the example above.
+the example above. This approach avoids collisions between multiple plugins.
 
 The registered handler requires the requesting user to have at least one of three given permissions. If none of these
 permissions is fulfilled, the request is declined. The registered servlet can then still check for those permissions
