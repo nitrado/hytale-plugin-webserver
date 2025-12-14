@@ -6,6 +6,8 @@ import java.util.UUID;
 
 public interface UserCredentialStore {
     void setUserCredential(UUID uuid, String username, String password) throws IOException;
+    void importUserCredential(UUID uuid, String username, String passwordHash) throws IOException;
+
     default void setUserCredential(UUID uuid, String password) throws IOException {
         setUserCredential(uuid, null, password);
     }

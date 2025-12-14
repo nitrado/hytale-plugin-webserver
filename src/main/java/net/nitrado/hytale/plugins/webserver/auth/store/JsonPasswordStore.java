@@ -1,9 +1,9 @@
 package net.nitrado.hytale.plugins.webserver.auth.store;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
 import com.hypixel.hytale.logger.HytaleLogger;
 import org.bson.Document;
 import org.bson.json.JsonWriterSettings;
-import org.mindrot.jbcrypt.BCrypt;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,6 +33,11 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
 
     public void load() throws IOException {
         var changes = false;
+        var parent = this.path.getParent();
+        if (!Files.exists(parent)) {
+            Files.createDirectory(parent);
+        }
+
         if (!Files.exists(this.path)) {
             return;
         }
@@ -59,7 +64,7 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
                 String hashedPassword = entry.getValue().toString();
 
                 if (!isBcryptHash(hashedPassword)) {
-                    hashedPassword = BCrypt.hashpw(hashedPassword, BCrypt.gensalt());
+                    BCrypt.withDefaults().hashToString(10 , hashedPassword.toCharArray());
                     changes = true;
                 }
 
@@ -105,7 +110,7 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
             return null;
         }
 
-        if (BCrypt.checkpw(credential, savedCredential)) {
+        if (BCrypt.verifyer().verify(credential.toCharArray(), savedCredential).verified) {
             return uuid;
         }
 
@@ -114,6 +119,15 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
 
     @Override
     public void setUserCredential(UUID uuid, String username, String password) throws IOException {
+        this.importUserCredential(uuid, username, BCrypt.withDefaults().hashToString(10 , password.toCharArray()));
+    }
+
+    @Override
+    public void importUserCredential(UUID uuid, String username, String passwordHash) throws IOException, InvalidCredentialException {
+        if (!this.isBcryptHash(passwordHash)) {
+            throw new InvalidCredentialException("Given password is not a bcrypt hash");
+        }
+
         var lastPassword = this.uuidToCredential.get(uuid);
         UUID lastUuid = null;
         if (username != null) {
@@ -121,7 +135,7 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
             this.nameToUUID.put(username, uuid);
         }
 
-        this.uuidToCredential.put(uuid, BCrypt.hashpw(password, BCrypt.gensalt()));
+        this.uuidToCredential.put(uuid, passwordHash);
 
         try {
             this.save();

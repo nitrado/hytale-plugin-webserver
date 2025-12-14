@@ -13,26 +13,13 @@ import net.nitrado.hytale.plugins.webserver.auth.store.CombinedCredentialValidat
 import net.nitrado.hytale.plugins.webserver.auth.store.CredentialValidator;
 import net.nitrado.hytale.plugins.webserver.auth.store.JsonPasswordStore;
 import net.nitrado.hytale.plugins.webserver.auth.store.UserCredentialStore;
-import net.nitrado.hytale.plugins.webserver.cert.CertificateProvider;
 import net.nitrado.hytale.plugins.webserver.commands.WebServerCommand;
-import net.nitrado.hytale.plugins.webserver.config.TlsConfig;
 import net.nitrado.hytale.plugins.webserver.config.WebServerConfig;
-import org.eclipse.jetty.http.HttpVersion;
-import org.eclipse.jetty.server.Handler;
-import org.eclipse.jetty.server.HttpConfiguration;
-import org.eclipse.jetty.server.HttpConnectionFactory;
-import org.eclipse.jetty.server.SecureRequestCustomizer;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.ServerConnector;
-import org.eclipse.jetty.server.SslConnectionFactory;
-import org.eclipse.jetty.server.handler.ContextHandler;
-import org.eclipse.jetty.server.handler.ContextHandlerCollection;
-import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.bson.Document;
 
 import javax.annotation.Nonnull;
-import javax.net.ssl.SSLContext;
 import java.io.IOException;
-import java.net.InetSocketAddress;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Level;
@@ -52,14 +39,15 @@ public class WebServerPlugin extends JavaPlugin {
     private UserCredentialStore userCredentialStore;
     private UserCredentialStore serviceAccountCredentialStore;
 
+    private Path dataDir;
+
     @Override
     protected void setup() {
         var l = getLogger();
         var cfg = config.get();
 
-        Path dataDir;
         try {
-            dataDir = getDataDirectory();
+            this.dataDir = getDataDirectory();
         } catch (IOException e) {
             l.atSevere().withCause(e).log("Failed to get data directory");
             throw new RuntimeException(e);
@@ -89,6 +77,12 @@ public class WebServerPlugin extends JavaPlugin {
         this.setupAnonymousUser();
 
         try {
+            this.importServiceAccounts(dataDir);
+        } catch (IOException e) {
+            getLogger().atSevere().withCause(e).log("failed to import service accounts for webserver: %s", e.getMessage());
+        }
+
+        try {
             this.webServer.start();
         } catch (Exception e) {
             getLogger().atSevere().log(e.getMessage());
@@ -109,10 +103,10 @@ public class WebServerPlugin extends JavaPlugin {
 
         var dataDir = getDataDirectory();
 
-        var serviceAccountStore = new JsonPasswordStore(dataDir.resolve("serviceaccounts.json"), getLogger().getSubLogger("ServiceAccountCredentialStore"));
+        var serviceAccountStore = new JsonPasswordStore(dataDir.resolve("store/serviceaccounts.json"), getLogger().getSubLogger("ServiceAccountCredentialStore"));
         serviceAccountStore.load();
 
-        var userStore = new JsonPasswordStore(dataDir.resolve("users.json"), getLogger().getSubLogger("UserCredentialStore"));
+        var userStore = new JsonPasswordStore(dataDir.resolve("store/users.json"), getLogger().getSubLogger("UserCredentialStore"));
         userStore.load();
 
         this.serviceAccountCredentialStore = serviceAccountStore;
@@ -176,6 +170,71 @@ public class WebServerPlugin extends JavaPlugin {
         }
     }
 
+    public UUID createServiceAccountBcrypt(String name, String passwordHash) throws IOException {
+        UUID uuid = UUID.randomUUID();
+
+        if (!name.startsWith("serviceaccount.")) {
+            name = "serviceaccount." + name;
+        }
+
+        try {
+            this.serviceAccountCredentialStore.importUserCredential(uuid, name, passwordHash);
+            PermissionsModule.get().addUserToGroup(uuid, "SERVICE_ACCOUNT");
+            return uuid;
+
+        } catch (IOException e) {
+            getLogger().at(Level.SEVERE).log("failed to create service account credentials: %s", e.getMessage());
+            throw e;
+        }
+    }
+
+    private void importServiceAccounts(Path dataDir) throws IOException {
+        var dir = dataDir.resolve("provisioning");
+
+        if (!Files.exists(dir)) {
+            Files.createDirectory(dir);
+        }
+
+        Files.list(dir).forEach(file -> {
+            if (file.getFileName().toString().endsWith(".serviceaccount.json")) {
+                getLogger().atInfo().log("Importing service account file %s", file.getFileName());
+                try {
+                    this.importServiceAccount(file);
+                } catch (Exception e) {
+                    this.getLogger().atSevere().withCause(e).log("Failed to import service account file %s", file.toString());
+                }
+            }
+        });
+    }
+
+    private void importServiceAccount(Path file) throws IOException {
+        String jsonString = Files.readString(file);
+        Document document = Document.parse(jsonString);
+
+        var name = document.getString("Name");
+
+        // Delete the service account every time to also reset its permissions and groups
+        this.deleteServiceAccount(name);
+
+        var enabled = document.getBoolean("Enabled");
+        if (!enabled) {
+            return;
+        }
+
+        var passwordHash = document.getString("PasswordHash");
+        this.createServiceAccountBcrypt(name, passwordHash);
+        var uuid = this.serviceAccountCredentialStore.getUUIDByName(name);
+
+        var groups = document.getList("Groups", String.class);
+        var permissions = document.getList("Permissions", String.class);
+
+        for (String group : groups) {
+            PermissionsModule.get().addUserToGroup(uuid, group);
+        }
+
+        PermissionsModule.get().addUserPermission(uuid, Set.copyOf(permissions));
+    }
+
     public void setServiceAccountPassword(String name, String password) throws IOException {
         var uuid = this.serviceAccountCredentialStore.getUUIDByName(name);
         if (uuid == null) {
@@ -195,13 +254,15 @@ public class WebServerPlugin extends JavaPlugin {
             var perm = PermissionsModule.get();
 
             for (PermissionProvider provider : perm.getProviders()) {
-                var groups = provider.getGroupsForUser(uuid);
+                var groups = Set.copyOf(provider.getGroupsForUser(uuid));
 
                 for (var group : groups) {
+                    getLogger().atInfo().log("Removing %s from group %s", uuid.toString(), group);
                     provider.removeUserFromGroup(uuid, group);
                 }
 
                 var permissions = provider.getUserPermissions(uuid);
+                getLogger().atInfo().log("Removing %s from permissions %s", uuid.toString(), permissions);
                 provider.removeUserPermissions(uuid, permissions);
             }
 
