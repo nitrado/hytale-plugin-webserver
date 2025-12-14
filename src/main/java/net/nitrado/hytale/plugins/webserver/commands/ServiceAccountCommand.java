@@ -1,10 +1,10 @@
 package net.nitrado.hytale.plugins.webserver.commands;
 
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandCollectionBase;
-import net.nitrado.hytale.plugins.webserver.WebServer;
+import net.nitrado.hytale.plugins.webserver.WebServerPlugin;
 
 public class ServiceAccountCommand extends CommandCollectionBase {
-    public ServiceAccountCommand(WebServer plugin) {
+    public ServiceAccountCommand(WebServerPlugin plugin) {
         super("serviceaccount", "Manage service accounts (bot users) for web access");
         addAliases("sa");
 

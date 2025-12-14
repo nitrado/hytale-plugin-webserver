@@ -10,7 +10,7 @@
     }
   ],
   "Website": "https://www.nitrado.net",
-  "Main": "net.nitrado.hytale.plugins.webserver.WebServer",
+  "Main": "net.nitrado.hytale.plugins.webserver.WebServerPlugin",
   "ServerVersion": "*",
   "Dependencies": {
     "Hytale:PermissionsModule": "*"

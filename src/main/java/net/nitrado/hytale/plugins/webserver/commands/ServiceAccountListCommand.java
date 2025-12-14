@@ -4,23 +4,20 @@ import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.AbstractCommand;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.CommandUtil;
-import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
-import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import net.nitrado.hytale.plugins.webserver.Permissions;
-import net.nitrado.hytale.plugins.webserver.WebServer;
+import net.nitrado.hytale.plugins.webserver.WebServerPlugin;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 
 public class ServiceAccountListCommand extends AbstractCommand {
 
-    private final WebServer plugin;
+    private final WebServerPlugin plugin;
 
-    public ServiceAccountListCommand(WebServer plugin) {
+    public ServiceAccountListCommand(WebServerPlugin plugin) {
         super("list", "List service accounts");
 
         this.plugin = plugin;

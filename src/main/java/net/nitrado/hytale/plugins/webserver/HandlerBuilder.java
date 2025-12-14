@@ -1,5 +1,6 @@
 package net.nitrado.hytale.plugins.webserver;
 
+import com.hypixel.hytale.logger.HytaleLogger;
 import jakarta.servlet.http.HttpServlet;
 import net.nitrado.hytale.plugins.webserver.filters.AuthFilter;
 import net.nitrado.hytale.plugins.webserver.auth.AuthProvider;
@@ -13,26 +14,32 @@ import java.util.logging.Level;
 
 public class HandlerBuilder {
 
+    private final HytaleLogger logger;
     private final WebServer webServer;
     private final ServletContextHandler handler;
     private final List<Object> beans;
-    private final AuthProvider[] authProviders;
+    private AuthProvider[] authProviders;
 
     private boolean authenticationRequired;
     private String[] requiredPermissions = new String[0];
     private String[] requiredPermissionsAny = new String[0];
 
-    protected HandlerBuilder(WebServer webServer, String prefix) {
+    protected HandlerBuilder(HytaleLogger logger, WebServer webServer, String prefix) {
+        this.logger = logger;
         this.webServer = webServer;
 
         this.handler = new ServletContextHandler(prefix);
         this.beans = new LinkedList<>();
-        this.authProviders = this.webServer.getDefaultAuthProviders();
     }
 
     public HandlerBuilder addServlet(HttpServlet servlet, String path)  {
         this.handler.addServlet(servlet, path);
 
+        return this;
+    }
+
+    public HandlerBuilder withAuthProviders(AuthProvider ...authProviders) {
+        this.authProviders = authProviders;
         return this;
     }
 
@@ -52,7 +59,7 @@ public class HandlerBuilder {
     }
 
     public void register() throws Exception {
-        this.webServer.getLogger().at(Level.INFO).log("Registering handler for " + this.handler.getContextPath());
+        this.logger.atInfo().log("Registering handler for " + this.handler.getContextPath());
 
         var authFilter = new AuthFilter(this.authProviders);
         this.handler.addFilter(authFilter, "/*", java.util.EnumSet.of(jakarta.servlet.DispatcherType.REQUEST));

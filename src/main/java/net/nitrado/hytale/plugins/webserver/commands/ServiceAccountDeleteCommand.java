@@ -7,7 +7,7 @@ import com.hypixel.hytale.server.core.command.system.CommandUtil;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import net.nitrado.hytale.plugins.webserver.Permissions;
-import net.nitrado.hytale.plugins.webserver.WebServer;
+import net.nitrado.hytale.plugins.webserver.WebServerPlugin;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -18,10 +18,10 @@ import java.util.concurrent.CompletableFuture;
 
 public class ServiceAccountDeleteCommand extends AbstractCommand {
 
-    private final WebServer plugin;
+    private final WebServerPlugin plugin;
     private final RequiredArg<String> nameArg = withRequiredArg("name", "The name or UUID of the service account", ArgTypes.STRING);
 
-    public ServiceAccountDeleteCommand(WebServer plugin) {
+    public ServiceAccountDeleteCommand(WebServerPlugin plugin) {
         super("delete", "Delete a service account");
 
         this.plugin = plugin;

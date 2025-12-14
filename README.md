@@ -91,12 +91,12 @@ public class Query extends JavaPlugin {
     private void registerHandlers() {
         var plugin = PluginManager.get().getPlugin(new PluginIdentifier("Nitrado", "WebServer"));
 
-        if (!(plugin instanceof WebServer webServer)) {
+        if (!(plugin instanceof WebServerPlugin webServerPlugin)) {
             return;
         }
 
         try {
-            webServer
+            webServerPlugin
                     .createHandlerBuilder(this)
                     .requireAnyPermissionOf(
                             Permissions.VIEW_PLAYERS,
