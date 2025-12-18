@@ -15,10 +15,12 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.tag.outputs.release_tag }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -65,10 +67,53 @@ jobs:
           clean
           package
 
+      - name: Generate release tag
+        id: tag
+        if: ${{ success() }}
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          COMMIT_DATE=$(git log -1 --format=%cd --date=short)
+          echo "release_tag=build-${COMMIT_HASH}" >> $GITHUB_OUTPUT
+
       - name: Upload Build Artifacts
         if: ${{ success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: build-artifacts
           path: target/webserver-*.jar
           retention-days: 7
+
+  publish:
+    needs: [ build ]
+    if: ${{ github.ref == 'refs/heads/main' && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      HAVE_GCP: ${{ secrets.GCP_CREDENTIALS != '' }}
+      HAVE_GCS_BUCKET: ${{ secrets.GCS_BUCKET != '' }}
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: build-artifacts
+
+      - name: Generate release archive
+        if: ${{ success() }}
+        run: |
+          ls -la
+          mkdir dist
+          mv webserver-*.jar dist/
+          cd dist
+          zip -r ../webserver-${{ needs.build.outputs.release_tag }}.zip .
+
+      - name: Log in to Google Cloud
+        if: ${{ success() && env.HAVE_GCP }}
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Upload to Google Cloud Storage
+        if: ${{ success() && env.HAVE_GCP && env.HAVE_GCS_BUCKET }}
+        uses: google-github-actions/upload-cloud-storage@v3
+        with:
+          path: webserver-${{ needs.build.outputs.release_tag }}.zip
+          destination: ${{ secrets.GCS_BUCKET }}
