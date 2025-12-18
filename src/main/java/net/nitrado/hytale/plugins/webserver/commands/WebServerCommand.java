@@ -1,9 +1,9 @@
 package net.nitrado.hytale.plugins.webserver.commands;
 
-import com.hypixel.hytale.server.core.command.system.basecommands.CommandCollectionBase;
+import com.hypixel.hytale.server.core.command.system.basecommands.AbstractCommandCollection;
 import net.nitrado.hytale.plugins.webserver.WebServerPlugin;
 
-public class WebServerCommand extends CommandCollectionBase {
+public class WebServerCommand extends AbstractCommandCollection {
 
     public WebServerCommand(WebServerPlugin webServerPlugin) {
         super("webserver", "Manage webserver-related configuration, such as user credentials and service accounts");
