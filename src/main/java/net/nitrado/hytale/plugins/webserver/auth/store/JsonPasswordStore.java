@@ -80,7 +80,7 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
 
     @Override
     public boolean hasUser(String username) {
-        var uuid = nameToUUID.get(username);
+        var uuid = nameToUUID.get(username.toLowerCase());
         if (uuid == null) {
             return false;
         }
@@ -95,7 +95,7 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
 
     @Override
     public UUID validateCredential(String username, String credential) {
-        var uuid = this.nameToUUID.get(username);
+        var uuid = this.nameToUUID.get(username.toLowerCase());
         if (uuid == null) {
             return null;
         }
@@ -131,8 +131,8 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
         var lastPassword = this.uuidToCredential.get(uuid);
         UUID lastUuid = null;
         if (username != null) {
-            lastUuid = this.nameToUUID.get(username);
-            this.nameToUUID.put(username, uuid);
+            lastUuid = this.nameToUUID.get(username.toLowerCase());
+            this.nameToUUID.put(username.toLowerCase(), uuid);
         }
 
         this.uuidToCredential.put(uuid, passwordHash);
@@ -141,7 +141,7 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
             this.save();
         } catch (IOException e) {
             this.uuidToCredential.put(uuid, lastPassword);
-            this.nameToUUID.put(username, lastUuid);
+            this.nameToUUID.put(username.toLowerCase(), lastUuid);
 
             throw e;
         }
@@ -149,7 +149,7 @@ public class JsonPasswordStore implements CredentialValidator, UserCredentialSto
 
     @Override
     public void deleteUserCredential(String username) throws IOException {
-        var uuid = this.nameToUUID.get(username);
+        var uuid = this.nameToUUID.get(username.toLowerCase());
 
         this.deleteUserCredential(uuid);
     }

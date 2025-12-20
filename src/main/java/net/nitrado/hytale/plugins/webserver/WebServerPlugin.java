@@ -9,12 +9,15 @@ import com.hypixel.hytale.server.core.plugin.PluginBase;
 import com.hypixel.hytale.server.core.util.Config;
 import net.nitrado.hytale.plugins.webserver.auth.AuthProvider;
 import net.nitrado.hytale.plugins.webserver.auth.BasicAuthProvider;
+import net.nitrado.hytale.plugins.webserver.auth.SessionAuthProvider;
 import net.nitrado.hytale.plugins.webserver.auth.store.CombinedCredentialValidator;
 import net.nitrado.hytale.plugins.webserver.auth.store.CredentialValidator;
 import net.nitrado.hytale.plugins.webserver.auth.store.JsonPasswordStore;
 import net.nitrado.hytale.plugins.webserver.auth.store.UserCredentialStore;
 import net.nitrado.hytale.plugins.webserver.commands.WebServerCommand;
 import net.nitrado.hytale.plugins.webserver.config.WebServerConfig;
+import net.nitrado.hytale.plugins.webserver.login.LoginServlet;
+import net.nitrado.hytale.plugins.webserver.login.LogoutServlet;
 import org.bson.Document;
 
 import javax.annotation.Nonnull;
@@ -61,6 +64,8 @@ public class WebServerPlugin extends JavaPlugin {
             l.at(Level.SEVERE).log("failed to setup stores for webserver credentials: %s", e.getMessage());
             return;
         }
+
+        this.setupBuiltinRoutes();
 
         this.setupCommands();
 
@@ -116,6 +121,12 @@ public class WebServerPlugin extends JavaPlugin {
         this.userCredentialValidator = userStore;
     }
 
+    public void setupBuiltinRoutes() {
+        // Add built-in routes directly to the main context
+        this.webServer.addServlet(new LoginServlet(getLogger().getSubLogger("LoginServlet"), this.userCredentialValidator), "/login");
+        this.webServer.addServlet(new LogoutServlet(getLogger().getSubLogger("LogoutServlet")), "/logout");
+    }
+
     @Override
     protected void shutdown() {
         this.webServer.stop();
@@ -148,6 +159,7 @@ public class WebServerPlugin extends JavaPlugin {
         combined.add(this.serviceAccountCredentialValidator);
 
         return new AuthProvider[]{
+            new SessionAuthProvider(getLogger().getSubLogger("SessionAuthProvider")),
             new BasicAuthProvider(combined),
         };
     }

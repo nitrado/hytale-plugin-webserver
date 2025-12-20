@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Login</title>
+    <style>
+        body {
+            background-color: black;
+            color: rgb(183, 206, 221);
+            font-family: "Nunito Sans Variable", sans-serif;
+        }
+
+        h1, h2, h3 {
+            margin: 0 0 16px 0;
+            font-family: "Lexend Variable", sans-serif;
+            color: #0000;
+            background: linear-gradient(#f5fbff,#bfe6ff);
+            background-clip: text;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+        .layout {
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .login {
+            background-color: rgb(18, 27, 37);
+            border-radius: 16px;
+            margin-block: 56px;
+            padding-block-end: 32px;
+            padding-block-start: 40px;
+            padding: 40px 56px 32px 56px;
+        }
+
+        .login form {
+            display: flex;
+            flex-direction: column;
+            row-gap: 12px;
+        }
+
+        input {
+            background-color: rgba(0,0,0,0.5);
+            border: none;
+            padding-block: 14px;
+            padding: 14px 12px;
+            border-radius: 6px;
+            padding-inline: 12px;
+            color: white;
+        }
+
+        label {
+            font-size: 19.2px;
+            line-height: 28.8px;
+        }
+
+        button {
+            background-color: oklab(0.129 -0.0038832 -0.0418201 / 0.2);
+            border-width: 2px;
+            border-style: solid;
+            border-radius: 6px;
+            border-color: oklab(0 0 0 / 0.1);
+            font-size: 16px;
+            color: white;
+            padding: 16px;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <div class="login">
+            <div th:if="${UUID}">
+                <h1>Logged In</h1>
+                <p th:text="${UUID}"></p>
+                <form action="/logout" method="post">
+                    <button type="submit">Logout</button>
+                </form>
+            </div>
+            <div th:unless="${UUID}">
+                <h1>Login</h1>
+                <form method="POST">
+                    <label for="input-user">Username</label>
+                    <input id="input-user" type="text" name="username" placeholder="Username" required>
+                    <label for="input-password">Password</label>
+                    <input id="input-password" type="password" name="password" placeholder="Password" required>
+                    <input type="hidden" name="CSRF" th:value="${CSRF_TOKEN}"/>
+                    <button type="submit">Login</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
