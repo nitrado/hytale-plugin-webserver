@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class CombinedCredentialValidator implements CredentialValidator {
+public final class CombinedCredentialValidator implements CredentialValidator {
 
     private final List<CredentialValidator> stores = new ArrayList<>();
 

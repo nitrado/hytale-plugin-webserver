@@ -5,7 +5,7 @@ import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.server.core.Options;
 
-public class WebServerConfig {
+public final class WebServerConfig {
     public static final BuilderCodec<WebServerConfig> CODEC = BuilderCodec.builder(WebServerConfig.class, WebServerConfig::new)
             .append(
                     new KeyedCodec<>("BindHost", Codec.STRING),

@@ -3,20 +3,19 @@ package net.nitrado.hytale.plugins.webserver;
 import com.hypixel.hytale.common.plugin.PluginIdentifier;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.plugin.PluginBase;
-import net.nitrado.hytale.plugins.webserver.authentication.AuthFilter;
+import jakarta.servlet.http.HttpFilter;
+import net.nitrado.hytale.plugins.webserver.authentication.internal.AuthFilter;
 import net.nitrado.hytale.plugins.webserver.authentication.AuthProvider;
-import net.nitrado.hytale.plugins.webserver.servlets.AuthorizationWrapperServlet;
+import net.nitrado.hytale.plugins.webserver.servlets.internal.AuthorizationWrapperServlet;
 import net.nitrado.hytale.plugins.webserver.cert.CertificateProvider;
 import net.nitrado.hytale.plugins.webserver.config.WebServerConfig;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
-import org.eclipse.jetty.ee10.servlet.FilterHolder;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import jakarta.servlet.DispatcherType;
-import jakarta.servlet.Filter;
 import jakarta.servlet.SessionTrackingMode;
 import jakarta.servlet.http.HttpServlet;
 import javax.net.ssl.SSLContext;
@@ -25,12 +24,19 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Level;
 
-public class WebServer {
+/**
+ * Internal web server implementation using Jetty.
+ * <p>
+ * This class is not part of the public API. Plugins should interact with
+ * {@link WebServerPlugin} to register servlets and configure authentication.
+ * </p>
+ */
+final class WebServer {
     private final ServletContextHandler context;
     private final Server server;
     private final HytaleLogger logger;
     private final Map<PluginIdentifier, List<String>> pluginToPathSpecs =  new HashMap<>();
-    private AuthProvider[] defaultAuthProviders;
+    private final Map<PluginIdentifier, AuthProvider[]> pluginToAuthProviders = new HashMap<>();
 
     public WebServer(HytaleLogger logger, WebServerConfig config, Path dataDir) {
         this.logger = logger;
@@ -70,15 +76,89 @@ public class WebServer {
         this.server.setHandler(this.context);
     }
 
-    /**
-     * Adds a servlet at the specified path.
-     */
-    protected void addServlet(HttpServlet servlet, String pathSpec) {
+    void setAuthProviders(PluginBase plugin, AuthProvider[] authProviders) {
+        if (pluginToPathSpecs.containsKey(plugin.getIdentifier())) {
+            return;
+        }
+
+        pluginToAuthProviders.put(plugin.getIdentifier(), authProviders);
+    }
+
+    void addServlet(PluginBase plugin, String pathSpec, HttpServlet servlet, HttpFilter[] filters, AuthProvider[] defaultAuthProviders) throws IllegalPathSpecException {
+        if (!pathSpec.isEmpty() && !pathSpec.startsWith("/")) {
+            throw new IllegalPathSpecException();
+        }
+
+        var identifier = plugin.getIdentifier();
+        var prefix = String.format("/%s/%s", identifier.getGroup(), identifier.getName());
+        var fullPathSpec = prefix + pathSpec;
+
+        this.addServlet(new AuthorizationWrapperServlet(this.logger, servlet), fullPathSpec);
+
+        if (!this.pluginToPathSpecs.containsKey(identifier)) {
+            this.pluginToPathSpecs.put(identifier, new ArrayList<>());
+
+            var authProviders = pluginToAuthProviders.getOrDefault(plugin.getIdentifier(), defaultAuthProviders);
+            var authFilter = new AuthFilter(authProviders);
+
+            this.context.addFilter(authFilter, prefix, EnumSet.of(DispatcherType.REQUEST));
+            this.context.addFilter(authFilter, prefix + "/*", EnumSet.of(DispatcherType.REQUEST));
+        }
+
+        for (var filter :  filters) {
+            this.context.addFilter(filter, fullPathSpec, EnumSet.of(DispatcherType.REQUEST));
+        }
+
+        this.pluginToPathSpecs.computeIfAbsent(identifier, k -> new ArrayList<>());
+        this.pluginToPathSpecs.get(identifier).add(pathSpec);
+    }
+
+    void removeServlet(PluginBase plugin, String pathSpec) throws IllegalPathSpecException {
+        if (!pathSpec.isEmpty() && !pathSpec.startsWith("/")) {
+            throw new IllegalPathSpecException();
+        }
+
+        var identifier = plugin.getIdentifier();
+
+        var prefix = String.format("/%s/%s", identifier.getGroup(), identifier.getName());
+        var fullPathSpec = prefix + pathSpec;
+
+        this.removeServlet(fullPathSpec);
+        this.removeFilters(fullPathSpec, false);
+        this.pluginToPathSpecs.computeIfAbsent(identifier, k -> new ArrayList<>());
+        this.pluginToPathSpecs.get(identifier).remove(pathSpec);
+    }
+
+    void removeServlets(PluginBase plugin) {
+        var toRemove =  Set.copyOf(this.pluginToPathSpecs.get(plugin.getIdentifier()));
+
+        for (var pathSpec : toRemove) {
+            try {
+                this.removeServlet(plugin, pathSpec);
+            } catch (IllegalPathSpecException e) {
+                // this can't occur in practice
+            }
+        }
+
+        this.removeAuthFilters(plugin);
+    }
+
+    void removeAuthFilters(PluginBase plugin) {
+        var identifier = plugin.getIdentifier();
+        var prefix = String.format("/%s/%s", identifier.getGroup(), identifier.getName());
+
+        this.removeFilters(prefix, true);
+        this.removeFilters(prefix + "/*", true);
+
+        this.logger.atInfo().log("Removed auth filters for plugin: %s/%s", identifier.getGroup(), identifier.getName());
+    }
+
+    void addServlet(HttpServlet servlet, String pathSpec) {
         this.context.addServlet(new ServletHolder(servlet), pathSpec);
         this.logger.atInfo().log("Added servlet at path: %s", pathSpec);
     }
 
-    protected void removeServlet(String pathSpec) {
+    void removeServlet(String pathSpec) {
         var servletHandler = this.context.getServletHandler();
         var mappings = servletHandler.getServletMappings();
         var holders = servletHandler.getServlets();
@@ -112,83 +192,43 @@ public class WebServer {
         this.logger.atInfo().log("Removed servlet at path: %s", pathSpec);
     }
 
-    public void addServlet(PluginBase plugin, String pathSpec, HttpServlet servlet) throws IllegalPathSpecException {
-        if (!pathSpec.isEmpty() && !pathSpec.startsWith("/")) {
-            throw new IllegalPathSpecException();
+    void removeFilters(String pathSpec, boolean includeAuthFilters) {
+        var servletHandler = this.context.getServletHandler();
+        var filterMappings = servletHandler.getFilterMappings();
+        var filterHolders = servletHandler.getFilters();
+
+        if (filterMappings == null) return;
+
+        // Find filter names mapped to this exact pathSpec
+        var filterNamesToRemove = java.util.Arrays.stream(filterMappings)
+                .filter(m -> java.util.Arrays.asList(m.getPathSpecs()).contains(pathSpec))
+                .filter(m -> includeAuthFilters || !m.getFilterName().contains("AuthFilter"))
+                .map(org.eclipse.jetty.ee10.servlet.FilterMapping::getFilterName)
+                .collect(java.util.stream.Collectors.toSet());
+
+        // Remove mappings for this pathSpec
+        var filteredMappings = java.util.Arrays.stream(filterMappings)
+                .filter(m -> !java.util.Arrays.asList(m.getPathSpecs()).contains(pathSpec)
+                        || (!includeAuthFilters && m.getFilterName().contains("AuthFilter")))
+                .toArray(org.eclipse.jetty.ee10.servlet.FilterMapping[]::new);
+        servletHandler.setFilterMappings(filteredMappings);
+
+        // Remove filter holders (only if they have no remaining mappings)
+        if (filterHolders != null) {
+            var remainingMappedNames = java.util.Arrays.stream(filteredMappings)
+                    .map(org.eclipse.jetty.ee10.servlet.FilterMapping::getFilterName)
+                    .collect(java.util.stream.Collectors.toSet());
+
+            var filteredHolders = java.util.Arrays.stream(filterHolders)
+                    .filter(h -> !filterNamesToRemove.contains(h.getName()) || remainingMappedNames.contains(h.getName()))
+                    .toArray(org.eclipse.jetty.ee10.servlet.FilterHolder[]::new);
+            servletHandler.setFilters(filteredHolders);
         }
 
-        var identifier = plugin.getIdentifier();
-        var prefix = String.format("/%s/%s", identifier.getGroup(), identifier.getName());
-        var fullPathSpec = prefix + pathSpec;
-
-        this.addServlet(new AuthorizationWrapperServlet(this.logger, servlet), fullPathSpec);
-
-        var authFilter = new AuthFilter(this.getDefaultAuthProviders());
-
-        if (!this.pluginToPathSpecs.containsKey(identifier)) {
-            this.pluginToPathSpecs.put(identifier, new ArrayList<>());
-
-            this.context.addFilter(authFilter, prefix, EnumSet.of(DispatcherType.REQUEST));
-            this.context.addFilter(authFilter, prefix + "/*", EnumSet.of(DispatcherType.REQUEST));
-        }
-
-        this.pluginToPathSpecs.computeIfAbsent(identifier, k -> new ArrayList<>());
-        this.pluginToPathSpecs.get(identifier).add(pathSpec);
+        this.logger.atInfo().log("Removed filters at path: %s", pathSpec);
     }
 
-    public AuthProvider[] getDefaultAuthProviders() {
-        return this.defaultAuthProviders;
-    }
-
-    protected void setDefaultAuthProviders(AuthProvider[] defaultAuthProviders) {
-        this.defaultAuthProviders = defaultAuthProviders;
-    }
-
-    public void removeServlet(PluginBase plugin, String pathSpec) throws IllegalPathSpecException {
-        if (!pathSpec.isEmpty() && !pathSpec.startsWith("/")) {
-            throw new IllegalPathSpecException();
-        }
-
-        var identifier = plugin.getIdentifier();
-
-        var prefix = String.format("/%s/%s", identifier.getGroup(), identifier.getName());
-        var fullPathSpec = prefix + pathSpec;
-
-        this.removeServlet(fullPathSpec);
-        this.pluginToPathSpecs.computeIfAbsent(identifier, k -> new ArrayList<>());
-        this.pluginToPathSpecs.get(identifier).remove(pathSpec);
-    }
-
-    public void removeServlets(PluginBase plugin) {
-        var toRemove =  Set.copyOf(this.pluginToPathSpecs.get(plugin.getIdentifier()));
-
-        for (var pathSpec : toRemove) {
-            try {
-                this.removeServlet(plugin, pathSpec);
-            } catch (IllegalPathSpecException e) {
-                // this can't occur in practice
-            }
-        }
-    }
-
-    /**
-     * Adds a filter at the specified path.
-     */
-    public void addFilter(PluginBase plugin, Filter filter, String pathSpec) throws IllegalPathSpecException {
-        if (!pathSpec.isEmpty() && !pathSpec.startsWith("/")) {
-            throw new IllegalPathSpecException();
-        }
-
-        var identifier = plugin.getIdentifier();
-        var prefix = String.format("/%s/%s", identifier.getGroup(), identifier.getName());
-        var fullPathSpec = prefix + pathSpec;
-
-        this.context.addFilter(new FilterHolder(filter), fullPathSpec, EnumSet.of(DispatcherType.REQUEST));
-    }
-
-    //TODO void removeFilters(PluginBase plugin)
-
-    protected void start() throws Exception {
+    void start() throws Exception {
         for (var connector : this.server.getConnectors()) {
             if (connector instanceof ServerConnector sc) {
                 this.logger.atInfo().log("WebServer listening on %s:%d", sc.getHost(), sc.getPort());
@@ -197,7 +237,7 @@ public class WebServer {
         this.server.start();
     }
 
-    protected void stop() {
+    void stop() {
         try {
             this.server.stop();
         } catch (Exception e) {
@@ -205,7 +245,7 @@ public class WebServer {
         }
     }
 
-    protected ServerConnector createTLSConnector(WebServerConfig config, Path dataDir) {
+    ServerConnector createTLSConnector(WebServerConfig config, Path dataDir) {
         SSLContext sslContext;
         try {
             sslContext = this.createSSLContext(config, dataDir);
@@ -229,7 +269,7 @@ public class WebServer {
                 new HttpConnectionFactory(httpsConfig));
     }
 
-    protected SSLContext createSSLContext(WebServerConfig config, Path dataDir) throws Exception {
+    SSLContext createSSLContext(WebServerConfig config, Path dataDir) throws Exception {
         var tlsConfig = config.getTls();
 
         CertificateProvider provider = tlsConfig.createCertificateProvider(

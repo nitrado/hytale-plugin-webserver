@@ -20,12 +20,10 @@ import java.util.Map;
  * Example usage:
  * <pre>
  * webServerPlugin
- *     .createHandlerBuilder(this)
- *     .addServlet(new StaticFileServlet(Path.of("plugins/MyPlugin/static")), "/static/*")
- *     .register();
+ *     .addServlet(this, new StaticFileServlet(Path.of("plugins/MyPlugin/static")), "/static/*")
  * </pre>
  */
-public class StaticFileServlet extends HttpServlet {
+public final class StaticFileServlet extends HttpServlet {
 
     private static final Map<String, String> MIME_TYPES = Map.ofEntries(
             // Text
@@ -309,4 +307,5 @@ public class StaticFileServlet extends HttpServlet {
         }
     }
 }
+
 

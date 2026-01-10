@@ -1,4 +1,4 @@
-package net.nitrado.hytale.plugins.webserver.servlets;
+package net.nitrado.hytale.plugins.webserver.servlets.internal;
 
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.permissions.PermissionHolder;
@@ -82,7 +82,7 @@ public final class AuthorizationWrapperServlet extends HttpServlet {
     }
 
     private boolean checkPermissionsAll(PermissionHolder holder, String[] permissions) {
-        for  (String permission : permissions) {
+        for (String permission : permissions) {
             if (!holder.hasPermission(permission)) {
                 return false;
             }
@@ -143,3 +143,4 @@ public final class AuthorizationWrapperServlet extends HttpServlet {
         };
     }
 }
+

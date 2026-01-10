@@ -1,14 +1,16 @@
-package net.nitrado.hytale.plugins.webserver.authentication;
+package net.nitrado.hytale.plugins.webserver.authentication.internal;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import net.nitrado.hytale.plugins.webserver.authentication.AuthProvider;
+import net.nitrado.hytale.plugins.webserver.authentication.HytaleUserPrincipal;
 import net.nitrado.hytale.plugins.webserver.authentication.store.CredentialValidator;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.UUID;
 
-public class BasicAuthProvider implements AuthProvider {
+public final class BasicAuthProvider implements AuthProvider {
     protected final CredentialValidator credentialValidator;
 
     public BasicAuthProvider(CredentialValidator credentialValidator) {
@@ -16,7 +18,7 @@ public class BasicAuthProvider implements AuthProvider {
     }
 
     @Override
-    public AuthResult authenticate(HttpServletRequest req, HttpServletResponse res) {
+    public AuthProvider.AuthResult authenticate(HttpServletRequest req, HttpServletResponse res) {
         String authHeader = req.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Basic ")) {
@@ -68,3 +70,4 @@ public class BasicAuthProvider implements AuthProvider {
         return true;
     }
 }
+

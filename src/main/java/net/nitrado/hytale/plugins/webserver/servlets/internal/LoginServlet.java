@@ -1,4 +1,4 @@
-package net.nitrado.hytale.plugins.webserver.servlets;
+package net.nitrado.hytale.plugins.webserver.servlets.internal;
 
 import com.hypixel.hytale.logger.HytaleLogger;
 import jakarta.servlet.ServletException;
@@ -16,7 +16,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.UUID;
 
-public class LoginServlet extends HttpServlet {
+public final class LoginServlet extends HttpServlet {
 
     private final HytaleLogger logger;
     private final CredentialValidator credentialValidator;
@@ -152,3 +152,4 @@ public class LoginServlet extends HttpServlet {
         return loggedInUUID;
     }
 }
+

@@ -18,7 +18,7 @@ import java.util.function.Consumer;
  *   <li>{@code letsencrypt} - Obtains certificates from Let's Encrypt via ACME</li>
  * </ul>
  */
-public class TlsConfig {
+public final class TlsConfig {
 
     /**
      * Configuration for self-signed certificate provider.

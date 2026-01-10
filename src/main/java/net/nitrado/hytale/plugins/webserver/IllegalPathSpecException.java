@@ -1,5 +1,5 @@
 package net.nitrado.hytale.plugins.webserver;
 
-public class IllegalPathSpecException extends Exception{
+public final class IllegalPathSpecException extends Exception {
 
 }

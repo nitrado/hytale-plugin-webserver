@@ -4,7 +4,7 @@ import com.hypixel.hytale.server.core.command.system.basecommands.AbstractComman
 import net.nitrado.hytale.plugins.webserver.authentication.store.LoginCodeStore;
 import net.nitrado.hytale.plugins.webserver.authentication.store.UserCredentialStore;
 
-public class CodeCommand extends AbstractCommandCollection {
+public final class CodeCommand extends AbstractCommandCollection {
 
     public CodeCommand(LoginCodeStore store) {
         super("code", "Manage login codes for web access");

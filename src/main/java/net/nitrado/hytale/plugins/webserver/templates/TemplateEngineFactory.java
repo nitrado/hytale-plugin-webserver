@@ -10,7 +10,7 @@ import org.thymeleaf.templateresolver.ITemplateResolver;
 
 import java.io.IOException;
 
-public class TemplateEngineFactory {
+public final class TemplateEngineFactory {
 
     private final WebServerPlugin plugin;
 

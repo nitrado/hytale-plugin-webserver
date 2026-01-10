@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * JsonPasswordStore implements a JSON file based password store, with passwords being saved as
  * BCrypt hashes.
  */
-public class JsonPasswordStore implements CredentialValidator, UserCredentialStore {
+public final class JsonPasswordStore implements CredentialValidator, UserCredentialStore {
 
     protected final Path path;
     protected final HytaleLogger logger;

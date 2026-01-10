@@ -1,11 +1,14 @@
-package net.nitrado.hytale.plugins.webserver.authentication;
+package net.nitrado.hytale.plugins.webserver.authentication.internal;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 
 import java.security.Principal;
 
-public class UserPrincipalRequestWrapper extends HttpServletRequestWrapper {
+/**
+ * Internal request wrapper that attaches a user principal to the request.
+ */
+final class UserPrincipalRequestWrapper extends HttpServletRequestWrapper {
     private final Principal principal;
 
     public UserPrincipalRequestWrapper(HttpServletRequest request, Principal principal) {

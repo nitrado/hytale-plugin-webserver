@@ -40,7 +40,77 @@ a file under `mods/Nitrado_WebServer/config.json`:
 }
 ```
 
-[[TODO: Configuration Options for TLS]]
+### TLS Configuration
+
+TLS is enabled by default using a self-signed certificate. To customize TLS settings, add a `Tls` section to your config:
+
+```json
+{
+  "BindHost": "127.0.0.1",
+  "BindPort": 7003,
+  "Tls": {
+    "Insecure": false,
+    "CertificateProvider": "selfsigned"
+  }
+}
+```
+
+**Disable TLS (not recommended):**
+```json
+{
+  "Tls": {
+    "Insecure": true
+  }
+}
+```
+
+**Certificate Providers:**
+
+| Provider      | Description                                      |
+|---------------|--------------------------------------------------|
+| `selfsigned`  | Generates a self-signed certificate (default)    |
+| `pem`         | Uses PEM certificate and key files               |
+| `letsencrypt` | Obtains certificates from Let's Encrypt via ACME |
+
+**Self-signed configuration:**
+```json
+{
+  "Tls": {
+    "CertificateProvider": "selfsigned",
+    "SelfSigned": {
+      "CommonName": "my-server.example.com"
+    }
+  }
+}
+```
+
+**PEM configuration:**
+```json
+{
+  "Tls": {
+    "CertificateProvider": "pem",
+    "Pem": {
+      "CertificatePath": "/path/to/certificate.pem",
+      "PrivateKeyPath": "/path/to/private-key.pem"
+    }
+  }
+}
+```
+
+**Let's Encrypt configuration:**
+```json
+{
+  "Tls": {
+    "CertificateProvider": "letsencrypt",
+    "LetsEncrypt": {
+      "Domain": "my-server.example.com",
+      "Production": false
+    }
+  }
+}
+```
+
+Set `Production` to `true` to use Let's Encrypt's production servers (has rate limits). When `false`, uses the staging environment for testing.
 
 ## Usage
 
@@ -102,7 +172,7 @@ public class Query extends JavaPlugin {
     this.webServerPlugin = webServer;
 
     try {
-      webServerPlugin.getWebServer().addServlet(this, "", new QueryServlet());
+      webServerPlugin.addServlet(this, "", new QueryServlet());
     } catch (Exception e) {
       getLogger().at(Level.SEVERE).withCause(e).log("Failed to register route.");
     }
@@ -110,7 +180,7 @@ public class Query extends JavaPlugin {
 
   @Override
   protected void shutdown() {
-    webServerPlugin.getWebServer().removeServlets(this);
+    webServerPlugin.removeServlets(this);
   }
 }
 ```
@@ -198,7 +268,7 @@ Note the `serviceaccount.` prefix when authenticating with a service account.
 [[ TODO ]]
 
 ##### Automatic Provisioning of Service Accounts
-Create the folder `plugins/Nitrado_WebServer/provisioning`. In it, you can place files that end in
+Create the folder `mods/Nitrado_WebServer/provisioning`. In it, you can place files that end in
 `.serviceaccount.json`, such as `example.serviceaccount.json` with the following content structure:
 
 ```json
@@ -207,7 +277,7 @@ Create the folder `plugins/Nitrado_WebServer/provisioning`. In it, you can place
   "Name": "serviceaccount.example",
   "PasswordHash": "$2b$10$ME8G6/YZ3hXUOAhLs3mrh.a3cuZTvzE2zGjQIqxztgPXKtm7sFCde",
   "Groups": ["Creative"],
-  "Permissions": ["nitrado.query.read.players"]
+  "Permissions": ["nitrado.query.web.read.players"]
 }
 ```
 

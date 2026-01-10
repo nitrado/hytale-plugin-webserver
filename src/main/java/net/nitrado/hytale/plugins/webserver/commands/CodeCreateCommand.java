@@ -39,7 +39,6 @@ public class CodeCreateCommand extends AbstractCommand {
 
         var code = this.loginCodeStore.createCode(context.sender().getUuid(), context.sender().getDisplayName());
 
-        context.sendMessage(Message.raw("Your UUID is: " + context.sender().getUuid().toString()));
         context.sendMessage(Message.raw("Your web server login code is: " + code));
         context.sendMessage(Message.raw("Do not share this code with anybody."));
 

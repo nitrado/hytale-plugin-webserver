@@ -1,22 +1,31 @@
-package net.nitrado.hytale.plugins.webserver.authentication;
+package net.nitrado.hytale.plugins.webserver.authentication.internal;
 
 import com.hypixel.hytale.logger.HytaleLogger;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import net.nitrado.hytale.plugins.webserver.authentication.AuthProvider;
+import net.nitrado.hytale.plugins.webserver.authentication.HytaleUserPrincipal;
 
 import java.io.IOException;
 import java.util.UUID;
 
-public class SessionAuthProvider implements AuthProvider {
+/**
+ * Authentication provider that handles session-based authentication via cookies.
+ * <p>
+ * <strong>Internal:</strong> Consumers receive a pre-configured instance via
+ * {@link net.nitrado.hytale.plugins.webserver.WebServerPlugin#getDefaultAuthProviders()}.
+ * </p>
+ */
+public final class SessionAuthProvider implements AuthProvider {
 
-    private HytaleLogger logger;
+    private final HytaleLogger logger;
 
     public SessionAuthProvider(HytaleLogger logger) {
         this.logger = logger;
     }
 
     @Override
-    public AuthResult authenticate(HttpServletRequest req, HttpServletResponse res) {
+    public AuthProvider.AuthResult authenticate(HttpServletRequest req, HttpServletResponse res) {
         var session = req.getSession();
 
         var uuidObj = session.getAttribute("uuid");
@@ -42,3 +51,4 @@ public class SessionAuthProvider implements AuthProvider {
         return true;
     }
 }
+

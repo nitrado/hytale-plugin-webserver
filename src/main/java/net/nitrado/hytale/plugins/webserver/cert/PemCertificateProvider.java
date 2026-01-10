@@ -23,7 +23,7 @@ import java.util.List;
  * A CertificateProvider implementation that loads certificates and private keys
  * from PEM-formatted files.
  */
-public class PemCertificateProvider implements CertificateProvider {
+public final class PemCertificateProvider implements CertificateProvider {
 
     private final Path certificatePath;
     private final Path privateKeyPath;

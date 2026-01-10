@@ -1,14 +1,22 @@
-package net.nitrado.hytale.plugins.webserver.authentication;
+package net.nitrado.hytale.plugins.webserver.authentication.internal;
 
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import net.nitrado.hytale.plugins.webserver.authentication.AuthProvider;
+import net.nitrado.hytale.plugins.webserver.authentication.HytaleUserPrincipal;
 
 import java.io.IOException;
 import java.util.UUID;
 
-public class AuthFilter implements Filter {
+/**
+ * Internal filter that processes authentication for incoming requests.
+ * <p>
+ * <strong>Internal API:</strong> This class is not intended for use by consumer plugins.
+ * </p>
+ */
+public final class AuthFilter implements Filter {
 
     private final AuthProvider[] authProviders;
 
@@ -55,3 +63,4 @@ public class AuthFilter implements Filter {
         }
     }
 }
+

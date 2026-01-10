@@ -6,7 +6,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-public class LoginCodeStore {
+public final class LoginCodeStore {
     private static final Duration VALIDITY = Duration.ofMinutes(5);
     private static final SecureRandom RANDOM = new SecureRandom();
 

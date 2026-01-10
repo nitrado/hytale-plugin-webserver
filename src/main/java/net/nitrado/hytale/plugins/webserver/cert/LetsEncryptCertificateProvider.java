@@ -28,14 +28,14 @@ import java.util.function.Consumer;
 /**
  * A CertificateProvider implementation that obtains certificates from Let's Encrypt
  * using the ACME protocol with HTTP-01 challenge.
- * 
+ *
  * <p>This provider automatically starts a temporary HTTP server on port 80 during
  * certificate issuance/renewal to handle the ACME HTTP-01 challenge.</p>
  *
  * <p><strong>Important:</strong> Let's Encrypt has rate limits. Use staging for testing.
  * Port 80 must be available and accessible from the internet.</p>
  */
-public class LetsEncryptCertificateProvider implements CertificateProvider {
+public final class LetsEncryptCertificateProvider implements CertificateProvider {
 
     /** Production ACME server URI */
     public static final String LETSENCRYPT_PRODUCTION = "acme://letsencrypt.org";

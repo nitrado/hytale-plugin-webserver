@@ -1,4 +1,4 @@
-package net.nitrado.hytale.plugins.webserver.servlets;
+package net.nitrado.hytale.plugins.webserver.servlets.internal;
 
 import com.hypixel.hytale.logger.HytaleLogger;
 import jakarta.servlet.ServletException;
@@ -9,7 +9,7 @@ import net.nitrado.hytale.plugins.webserver.authentication.store.CredentialValid
 
 import java.io.IOException;
 
-public class LogoutServlet extends HttpServlet {
+public final class LogoutServlet extends HttpServlet {
 
     private HytaleLogger logger;
     private CredentialValidator validator;
@@ -24,3 +24,4 @@ public class LogoutServlet extends HttpServlet {
         resp.sendRedirect(resp.encodeRedirectURL("/login"));
     }
 }
+

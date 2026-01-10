@@ -9,7 +9,7 @@ import net.nitrado.hytale.plugins.webserver.authentication.HytaleUserPrincipal;
 import java.io.IOException;
 import java.util.UUID;
 
-public class RequirePermissionsFilter implements Filter {
+public final class RequirePermissionsFilter implements Filter {
 
     protected String[] permissions;
     protected boolean any = false;

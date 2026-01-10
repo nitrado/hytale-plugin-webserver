@@ -16,7 +16,7 @@ import java.security.cert.Certificate;
 import java.util.*;
 import java.io.*;
 
-public class SelfSignedCertificateProvider implements CertificateProvider {
+public final class SelfSignedCertificateProvider implements CertificateProvider {
 
     private final String commonName;
     private final char[] keyStorePassword;
