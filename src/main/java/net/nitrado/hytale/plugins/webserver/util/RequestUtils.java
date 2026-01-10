@@ -33,6 +33,10 @@ public final class RequestUtils {
      * <p>
      * If the Accept header is used, content types are matched based on quality values. When multiple
      * content types have the same quality, the order in {@code supportedContentTypes} determines priority.
+     * <p>
+     * <b>Suffix matching:</b> For custom media types with suffixes (e.g., {@code application/x.custom+json}),
+     * a request for the base type (e.g., {@code Accept: application/json} or {@code ?output=json}) will match
+     * the suffixed type, unless the exact base type is also in the supported list.
      *
      * @param req the HTTP request
      * @param allowOverrideFromQuery if {@code true}, the {@code output} query parameter can override Accept header negotiation
@@ -71,7 +75,7 @@ public final class RequestUtils {
         for (AcceptEntry entry : acceptEntries) {
             for (int i = 0; i < supportedContentTypes.length; i++) {
                 String supported = supportedContentTypes[i];
-                if (matches(entry.mediaType, supported)) {
+                if (matches(entry.mediaType, supported, supportedContentTypes)) {
                     // If quality is higher, or same quality but earlier in supportedContentTypes
                     if (entry.quality > bestQuality ||
                         (entry.quality == bestQuality && i < bestSupportedIndex)) {
@@ -90,8 +94,11 @@ public final class RequestUtils {
      * Matches if:
      * - The query param equals the full media type (e.g., "application/x.custom+json;version=1")
      * - The query param matches the subtype (e.g., "json" matches "application/json")
+     * - The query param matches a suffix (e.g., "json" matches "application/x.custom+json" if "application/json" is not supported)
      */
     private static String findContentTypeByQueryParam(String queryParam, String[] supportedContentTypes) {
+        String suffixMatch = null;
+
         for (String supported : supportedContentTypes) {
             // Exact match with full media type
             if (supported.equals(queryParam)) {
@@ -103,8 +110,23 @@ public final class RequestUtils {
             if (subtype.equals(queryParam)) {
                 return supported;
             }
+
+            // Check for suffix match (e.g., "json" matches "x.custom+json")
+            if (suffixMatch == null && hasSuffixSubtype(subtype, queryParam)) {
+                suffixMatch = supported;
+            }
         }
-        return null;
+
+        // Return suffix match only if no exact subtype match was found
+        return suffixMatch;
+    }
+
+    /**
+     * Checks if the subtype has a suffix matching the query param.
+     * E.g., "x.custom+json" has suffix "json".
+     */
+    private static boolean hasSuffixSubtype(String subtype, String queryParam) {
+        return subtype.endsWith("+" + queryParam);
     }
 
     /**
@@ -154,7 +176,7 @@ public final class RequestUtils {
         return entries;
     }
 
-    private static boolean matches(String acceptMediaType, String supportedMediaType) {
+    private static boolean matches(String acceptMediaType, String supportedMediaType, String[] allSupportedTypes) {
         if ("*/*".equals(acceptMediaType)) {
             return true;
         }
@@ -165,7 +187,60 @@ public final class RequestUtils {
             return acceptType.equals(supportedType);
         }
 
-        return acceptMediaType.equals(supportedMediaType);
+        if (acceptMediaType.equals(supportedMediaType)) {
+            return true;
+        }
+
+        // Handle suffix-based matching (e.g., application/json matches application/x.custom+json)
+        // Only if the exact type is not in the supported list
+        return isSuffixMatch(acceptMediaType, supportedMediaType) && !containsExactType(acceptMediaType, allSupportedTypes);
+    }
+
+    /**
+     * Checks if the supported media type has a suffix that matches the accept media type.
+     * E.g., "application/json" matches "application/x.custom+json;version=1" because the suffix is "+json".
+     */
+    private static boolean isSuffixMatch(String acceptMediaType, String supportedMediaType) {
+        int acceptSlash = acceptMediaType.indexOf('/');
+        int supportedSlash = supportedMediaType.indexOf('/');
+        if (acceptSlash < 0 || supportedSlash < 0) {
+            return false;
+        }
+
+        String acceptType = acceptMediaType.substring(0, acceptSlash);
+        String supportedType = supportedMediaType.substring(0, supportedSlash);
+        if (!acceptType.equals(supportedType)) {
+            return false;
+        }
+
+        String acceptSubtype = acceptMediaType.substring(acceptSlash + 1);
+        String supportedSubtype = supportedMediaType.substring(supportedSlash + 1);
+
+        // Remove parameters from supported subtype
+        int semicolonIndex = supportedSubtype.indexOf(';');
+        if (semicolonIndex >= 0) {
+            supportedSubtype = supportedSubtype.substring(0, semicolonIndex);
+        }
+
+        // Check if supported subtype has a suffix matching the accept subtype (e.g., +json)
+        return supportedSubtype.endsWith("+" + acceptSubtype);
+    }
+
+    /**
+     * Checks if the exact media type (ignoring parameters) is in the supported types list.
+     */
+    private static boolean containsExactType(String mediaType, String[] supportedTypes) {
+        for (String supported : supportedTypes) {
+            String supportedBase = supported;
+            int semicolonIndex = supportedBase.indexOf(';');
+            if (semicolonIndex >= 0) {
+                supportedBase = supportedBase.substring(0, semicolonIndex);
+            }
+            if (supportedBase.equals(mediaType)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private record AcceptEntry(String mediaType, double quality) {}
