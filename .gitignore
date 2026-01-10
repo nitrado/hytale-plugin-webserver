@@ -3,6 +3,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .kotlin
+.flattened-pom.xml
 
 ### IntelliJ IDEA ###
 .idea/modules.xml

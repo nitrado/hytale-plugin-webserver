@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - '*'
   pull_request:
     branches:
       - main
@@ -16,18 +18,56 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      release_tag: ${{ steps.tag.outputs.release_tag }}
+      version: ${{ steps.version.outputs.version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+      is_release: ${{ steps.version.outputs.is_release }}
+      artifact_id: ${{ steps.artifact.outputs.artifact_id }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Determine version
+        id: version
+        run: |
+          # Semver regex with required leading v
+          SEMVER_REGEX='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+          
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            if [[ "$TAG_NAME" =~ $SEMVER_REGEX ]]; then
+              # Strip leading 'v' for maven/jar version
+              VERSION="${TAG_NAME#v}"
+              echo "version=$VERSION" >> $GITHUB_OUTPUT
+              echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+              echo "is_release=true" >> $GITHUB_OUTPUT
+              echo "Detected semver release tag: $TAG_NAME (version: $VERSION)"
+            else
+              echo "Tag '$TAG_NAME' does not match required format (vX.Y.Z), using snapshot version"
+              COMMIT_HASH=$(git rev-parse --short HEAD)
+              echo "version=0.0.0-${COMMIT_HASH}" >> $GITHUB_OUTPUT
+              echo "is_release=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            COMMIT_HASH=$(git rev-parse --short HEAD)
+            echo "version=0.0.0-${COMMIT_HASH}" >> $GITHUB_OUTPUT
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            echo "No tag detected, using snapshot version"
+          fi
+
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
           cache: maven
+
+      - name: Determine artifact ID
+        id: artifact
+        run: |
+          ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          echo "artifact_id=$ARTIFACT_ID" >> $GITHUB_OUTPUT
+          echo "Detected artifact ID: $ARTIFACT_ID"
 
       - name: Set up Maven settings.xml with additional repository
         env:
@@ -61,31 +101,34 @@ jobs:
                   </activeProfiles>
                 </settings>" > $HOME/.m2/settings.xml
 
+      - name: Update manifest version for release
+        if: ${{ steps.version.outputs.is_release == 'true' }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/\"Version\": \"[^\"]*\"/\"Version\": \"$VERSION\"/" src/main/resources/manifest.json
+          echo "Updated manifest.json to version $VERSION"
+          cat src/main/resources/manifest.json
+
       - name: Build (clean package)
         run: >
           mvn -B -V
           clean
           package
-
-      - name: Generate release tag
-        id: tag
-        if: ${{ success() }}
-        run: |
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          COMMIT_DATE=$(git log -1 --format=%cd --date=short)
-          echo "release_tag=build-${COMMIT_HASH}" >> $GITHUB_OUTPUT
+          -Drevision=${{ steps.version.outputs.version }}
 
       - name: Upload Build Artifacts
         if: ${{ success() }}
         uses: actions/upload-artifact@v6
         with:
           name: build-artifacts
-          path: target/webserver-*.jar
+          path: |
+            target/${{ steps.artifact.outputs.artifact_id }}-*.jar
+            !target/original-*.jar
           retention-days: 7
 
   publish:
     needs: [ build ]
-    if: ${{ github.ref == 'refs/heads/main' && needs.build.result == 'success' }}
+    if: ${{ needs.build.outputs.is_release == 'true' && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     env:
       HAVE_GCP: ${{ secrets.GCP_CREDENTIALS != '' }}
@@ -101,9 +144,20 @@ jobs:
         run: |
           ls -la
           mkdir dist
-          mv webserver-*.jar dist/
+          mv ${{ needs.build.outputs.artifact_id }}-*.jar dist/
           cd dist
-          zip -r ../webserver-${{ needs.build.outputs.release_tag }}.zip .
+          zip -r ../${{ needs.build.outputs.artifact_id }}-${{ needs.build.outputs.version }}.zip .
+
+      - name: Create GitHub Release
+        if: ${{ success() }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag_name }}
+          name: Release ${{ needs.build.outputs.version }}
+          files: |
+            ${{ needs.build.outputs.artifact_id }}-${{ needs.build.outputs.version }}.zip
+            dist/${{ needs.build.outputs.artifact_id }}-${{ needs.build.outputs.version }}.jar
+          generate_release_notes: true
 
       - name: Log in to Google Cloud
         if: ${{ success() && env.HAVE_GCP }}
@@ -115,5 +169,51 @@ jobs:
         if: ${{ success() && env.HAVE_GCP && env.HAVE_GCS_BUCKET }}
         uses: google-github-actions/upload-cloud-storage@v3
         with:
-          path: webserver-${{ needs.build.outputs.release_tag }}.zip
+          path: ${{ needs.build.outputs.artifact_id }}-${{ needs.build.outputs.version }}.zip
           destination: ${{ secrets.GCS_BUCKET }}
+
+  publish-maven:
+    needs: [ build ]
+    if: ${{ needs.build.outputs.is_release == 'true' && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      HAVE_MAVEN_PUBLISH: ${{ secrets.MAVEN_PUBLISH_URL != '' && secrets.MAVEN_PUBLISH_USERNAME != '' && secrets.MAVEN_PUBLISH_PASSWORD != '' }}
+    steps:
+      - name: Checkout
+        if: ${{ env.HAVE_MAVEN_PUBLISH == 'true' }}
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        if: ${{ env.HAVE_MAVEN_PUBLISH == 'true' }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Set up Maven settings.xml for publishing
+        if: ${{ env.HAVE_MAVEN_PUBLISH == 'true' }}
+        run: |
+          mkdir -p $HOME/.m2
+          cat > $HOME/.m2/settings.xml << 'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>publish-repo</id>
+                <username>${{ secrets.MAVEN_PUBLISH_USERNAME }}</username>
+                <password>${{ secrets.MAVEN_PUBLISH_PASSWORD }}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Deploy to Maven repository
+        if: ${{ env.HAVE_MAVEN_PUBLISH == 'true' }}
+        run: >
+          mvn -B -V
+          clean
+          deploy
+          -Drevision=${{ needs.build.outputs.version }}
+          -DaltDeploymentRepository=publish-repo::${{ secrets.MAVEN_PUBLISH_URL }}
+          -DskipTests
+
