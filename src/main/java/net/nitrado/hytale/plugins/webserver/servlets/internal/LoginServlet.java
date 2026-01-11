@@ -53,7 +53,7 @@ public final class LoginServlet extends HttpServlet {
         var thymeleafContext = new WebContext(exchange);
         thymeleafContext.setVariables(m);
 
-        this.templateEngine.process("login", thymeleafContext, resp.getWriter());
+        this.templateEngine.process("nitrado.webserver.login", thymeleafContext, resp.getWriter());
     }
 
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
