@@ -1,14 +1,10 @@
 package net.nitrado.hytale.plugins.webserver.templates;
 
-import com.hypixel.hytale.server.core.plugin.PluginBase;
+import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import net.nitrado.hytale.plugins.webserver.WebServerPlugin;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.templatemode.TemplateMode;
-import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 import org.thymeleaf.templateresolver.FileTemplateResolver;
-import org.thymeleaf.templateresolver.ITemplateResolver;
-
-import java.io.IOException;
 
 /**
  * Factory for creating Thymeleaf {@link TemplateEngine} instances configured for use within the
@@ -25,7 +21,7 @@ import java.io.IOException;
  * <h3>Usage</h3>
  * <p>
  * Consumer plugins should obtain an instance of this factory via
- * {@link WebServerPlugin#getTemplateEngineFactory()} and then call {@link #getEngineFor(PluginBase)}
+ * {@link WebServerPlugin#getTemplateEngineFactory()} and then call {@link #getEngineFor(JavaPlugin)}
  * to get a template engine configured for their plugin:
  * </p>
  * <pre>{@code
@@ -49,29 +45,34 @@ public final class TemplateEngineFactory {
         this.plugin = plugin;
     }
 
-    private ClassLoaderTemplateResolver getClassLoaderTemplateResolverFor(PluginBase plugin) {
-        var resolver = new ClassLoaderTemplateResolver(plugin.getClass().getClassLoader());
+    private JarTemplateResolver getJarTemplateResolverFor(JavaPlugin plugin) {
+        var resolver = new JarTemplateResolver(plugin.getFile());
         resolver.setPrefix("templates/");
         resolver.setSuffix(".html");
         resolver.setTemplateMode(TemplateMode.HTML);
         resolver.setCacheable(true);
         resolver.setCharacterEncoding("UTF-8");
+        resolver.setName(plugin.getIdentifier() + "_Jar");
 
         resolver.setCheckExistence(true);
 
         return resolver;
     }
 
-    private FileTemplateResolver getThemeFolderTemplateResolverFor(PluginBase plugin) {
+    private FileTemplateResolver getThemeFolderTemplateResolverFor(JavaPlugin plugin) {
         var resolver = new FileTemplateResolver();
 
         var dataDir = plugin.getDataDirectory();
 
-        resolver.setPrefix(dataDir.resolve("theme/templates").toString() + "/");
+        var prefix = dataDir.resolve("theme/templates").toAbsolutePath() + "/";
+        resolver.setPrefix(prefix);
         resolver.setSuffix(".html");
         resolver.setTemplateMode(TemplateMode.HTML);
         resolver.setCacheable(false);
         resolver.setCharacterEncoding("UTF-8");
+        resolver.setName(plugin.getIdentifier() + "_ThemeFolder");
+
+        plugin.getLogger().atWarning().log("Template resolver for prefix %s", prefix);
 
         resolver.setCheckExistence(true);
 
@@ -85,7 +86,7 @@ public final class TemplateEngineFactory {
      * Resolution priority (lower order = higher priority):
      * <ol>
      *   <li>WebServerPlugin's theme folder resolver (order 15)</li>
-     *   <li>WebServerPlugin's ClassLoader resolver (order 20)</li>
+     *   <li>WebServerPlugin's JAR resolver (order 20)</li>
      * </ol>
      * </p>
      *
@@ -94,10 +95,10 @@ public final class TemplateEngineFactory {
     public TemplateEngine getDefaultEngine() {
         var result = new TemplateEngine();
 
-        var classLoaderResolver = this.getClassLoaderTemplateResolverFor(this.plugin);
-        classLoaderResolver.setOrder(20);
+        var jarResolver = this.getJarTemplateResolverFor(this.plugin);
+        jarResolver.setOrder(20);
 
-        result.addTemplateResolver(classLoaderResolver);
+        result.addTemplateResolver(jarResolver);
 
         var themeFolderResolver = this.getThemeFolderTemplateResolverFor(this.plugin);
         themeFolderResolver.setOrder(15);
@@ -111,17 +112,17 @@ public final class TemplateEngineFactory {
      * Creates a {@link TemplateEngine} configured to resolve templates for the specified plugin,
      * with fallback to the WebServerPlugin's default templates.
      * <p>
-     * Templates are expected to be in the {@code templates/} directory of the plugin's resources
+     * Templates are expected to be in the {@code templates/} directory of the plugin's JAR
      * or in {@code <dataDir>/theme/templates/}, with {@code .html} suffix and UTF-8 encoding.
-     * ClassLoader-resolved templates are cached; theme folder templates are not cached to allow live editing.
+     * JAR-resolved templates are cached; theme folder templates are not cached to allow live editing.
      * </p>
      * <p>
      * Resolution priority (lower order = higher priority):
      * <ol>
      *   <li>Plugin's theme folder resolver (order 5)</li>
-     *   <li>Plugin's ClassLoader resolver (order 10)</li>
+     *   <li>Plugin's JAR resolver (order 10)</li>
      *   <li>WebServerPlugin's theme folder resolver (order 15)</li>
-     *   <li>WebServerPlugin's ClassLoader resolver (order 20)</li>
+     *   <li>WebServerPlugin's JAR resolver (order 20)</li>
      * </ol>
      * This allows plugins to override WebServerPlugin templates (e.g., layout.html) while
      * still falling back to defaults.
@@ -130,18 +131,20 @@ public final class TemplateEngineFactory {
      * @param plugin the plugin for which to create the template engine
      * @return a configured TemplateEngine with resolvers for both the specified plugin and WebServerPlugin
      */
-    public TemplateEngine getEngineFor(PluginBase plugin) {
+    public TemplateEngine getEngineFor(JavaPlugin plugin) {
         var result = this.getDefaultEngine();
 
-        var classLoaderResolver = this.getClassLoaderTemplateResolverFor(plugin);
-        classLoaderResolver.setOrder(10);
+        var jarResolver = this.getJarTemplateResolverFor(plugin);
+        jarResolver.setOrder(10);
 
-        result.addTemplateResolver(classLoaderResolver);
+        result.addTemplateResolver(jarResolver);
 
         var themeFolderResolver = this.getThemeFolderTemplateResolverFor(plugin);
         themeFolderResolver.setOrder(5);
 
         result.addTemplateResolver(themeFolderResolver);
+
+        this.plugin.getLogger().atWarning().log("Number of resolvers: %d", result.getTemplateResolvers().size());
 
         return result;
     }
