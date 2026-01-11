@@ -35,7 +35,7 @@ public final class CombinedCredentialValidator implements CredentialValidator {
     }
 
     @Override
-    public UUID validateCredential(String username, String credential) {
+    public ValidationResult validateCredential(String username, String credential) {
         for  (CredentialValidator store : stores) {
             if (store.hasUser(username)) {
                 return store.validateCredential(username, credential);
@@ -46,7 +46,7 @@ public final class CombinedCredentialValidator implements CredentialValidator {
     }
 
     @Override
-    public UUID validateCredential(UUID uuid, String credential) {
+    public ValidationResult validateCredential(UUID uuid, String credential) {
         for  (CredentialValidator store : stores) {
             if (store.hasUser(uuid)) {
                 return store.validateCredential(uuid, credential);

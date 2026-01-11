@@ -37,7 +37,13 @@ public final class SessionAuthProvider implements AuthProvider {
             return new AuthResult(AuthResultType.NONE, null);
         }
 
-        return new AuthResult(AuthResultType.SUCCESS, new HytaleUserPrincipal(uuid));
+        var usernameObj  = session.getAttribute("username");
+        String username = null;
+        if (usernameObj instanceof String) {
+            username = (String) usernameObj;
+        }
+
+        return new AuthResult(AuthResultType.SUCCESS, new HytaleUserPrincipal(uuid, username));
     }
 
     @Override

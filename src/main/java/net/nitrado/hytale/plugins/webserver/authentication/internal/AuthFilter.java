@@ -51,7 +51,7 @@ public final class AuthFilter implements Filter {
         }
 
         // We are not authenticated, so we map to the anonymous user
-        var wrapped = new UserPrincipalRequestWrapper(req, new HytaleUserPrincipal(new UUID(0,0)));
+        var wrapped = new UserPrincipalRequestWrapper(req, HytaleUserPrincipal.getAnonymous());
         filterChain.doFilter(wrapped, response);
 
         if (res.getStatus() == HttpServletResponse.SC_UNAUTHORIZED) {

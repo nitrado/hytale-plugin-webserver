@@ -62,6 +62,7 @@ public final class LoginServlet extends HttpServlet {
         var m = new HashMap<String, Object>();
 
         UUID loggedInUUID = null;
+        String loggedInUsername = null;
         var loginMethod = req.getParameter("method");
         String username, password;
         LoginCodeStore.Entry entry;
@@ -74,15 +75,20 @@ public final class LoginServlet extends HttpServlet {
                 }
 
                 loggedInUUID = entry.uuid();
+                loggedInUsername = entry.displayName();
                 break;
             case "password":
                 username = req.getParameter("username");
                 password = req.getParameter("password");
 
-                loggedInUUID = getUuidByPlayerPassword(username, password);
-                if (loggedInUUID == null) {
+                var loggedInUser = getUuidByPlayerPassword(username, password);
+                if (loggedInUser == null) {
                     m.put("ERROR", "Invalid username or password.");
+                    break;
                 }
+
+                loggedInUsername = loggedInUser.username();
+                loggedInUUID = loggedInUser.uuid();
                 break;
             case "passwordCreate":
                 entry = getStoredEntryByLoginCode(req.getParameter("loginCode"));
@@ -99,6 +105,7 @@ public final class LoginServlet extends HttpServlet {
                 }
 
                 loggedInUUID = entry.uuid();
+                loggedInUsername = entry.displayName();
 
                 this.credentialStore.setUserCredential(loggedInUUID, entry.displayName(), password);
                 break;
@@ -106,6 +113,7 @@ public final class LoginServlet extends HttpServlet {
 
         if (loggedInUUID != null) {
             session.setAttribute("uuid", loggedInUUID);
+            session.setAttribute("username", loggedInUsername);
 
             var redirectTarget = "/login";
             var redirectUrlParameter = req.getParameter("redirect_url");
@@ -135,21 +143,21 @@ public final class LoginServlet extends HttpServlet {
         return this.loginCodeStore.getEntry(loginCode);
     }
 
-    private UUID getUuidByPlayerPassword(String username, String password) {
+    private CredentialValidator.ValidationResult getUuidByPlayerPassword(String username, String password) {
         UUID uuidInput = null;
         try {
             uuidInput = UUID.fromString(username);
 
         } catch (IllegalArgumentException e) {}
 
-        UUID loggedInUUID;
+        CredentialValidator.ValidationResult result;
         if (uuidInput != null) {
-            loggedInUUID = credentialValidator.validateCredential(uuidInput, password);
+            result = credentialValidator.validateCredential(uuidInput, password);
         } else {
-            loggedInUUID = credentialValidator.validateCredential(username, password);
+            result = credentialValidator.validateCredential(username, password);
         }
 
-        return loggedInUUID;
+        return result;
     }
 }
 

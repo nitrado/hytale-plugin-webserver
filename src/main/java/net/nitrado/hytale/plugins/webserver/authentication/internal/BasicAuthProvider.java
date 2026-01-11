@@ -49,18 +49,19 @@ public final class BasicAuthProvider implements AuthProvider {
             // ignore
         }
 
+        CredentialValidator.ValidationResult result;
         // if username is a UUID, treat is as such
         if (uuid == null) {
-            uuid = credentialValidator.validateCredential(username, password);
+            result = credentialValidator.validateCredential(username, password);
         } else {
-            uuid = credentialValidator.validateCredential(uuid, password);
+            result = credentialValidator.validateCredential(uuid, password);
         }
 
-        if (uuid == null) {
+        if (result == null) {
             return new AuthResult(AuthResultType.FAILURE, null);
         }
 
-        return new AuthResult(AuthResultType.SUCCESS, new HytaleUserPrincipal(uuid));
+        return new AuthResult(AuthResultType.SUCCESS, new HytaleUserPrincipal(result.uuid(), result.username()));
     }
 
     @Override

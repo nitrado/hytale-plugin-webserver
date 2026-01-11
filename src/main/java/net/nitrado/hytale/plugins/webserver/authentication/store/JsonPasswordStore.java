@@ -94,7 +94,7 @@ public final class JsonPasswordStore implements CredentialValidator, UserCredent
     }
 
     @Override
-    public UUID validateCredential(String username, String credential) {
+    public ValidationResult validateCredential(String username, String credential) {
         var uuid = this.nameToUUID.get(username.toLowerCase());
         if (uuid == null) {
             return null;
@@ -104,14 +104,14 @@ public final class JsonPasswordStore implements CredentialValidator, UserCredent
     }
 
     @Override
-    public UUID validateCredential(UUID uuid, String credential) {
+    public ValidationResult validateCredential(UUID uuid, String credential) {
         var savedCredential = this.uuidToCredential.get(uuid);
         if (savedCredential == null) {
             return null;
         }
 
         if (BCrypt.verifyer().verify(credential.toCharArray(), savedCredential).verified) {
-            return uuid;
+            return new ValidationResult(uuid, getNameByUUID(uuid));
         }
 
         return null;

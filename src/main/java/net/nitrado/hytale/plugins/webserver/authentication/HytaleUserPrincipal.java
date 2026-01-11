@@ -4,6 +4,7 @@ import com.hypixel.hytale.server.core.permissions.PermissionHolder;
 import com.hypixel.hytale.server.core.permissions.PermissionsModule;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.security.Principal;
 import java.util.UUID;
 
@@ -27,10 +28,14 @@ import java.util.UUID;
  */
 public class HytaleUserPrincipal implements Principal, PermissionHolder {
 
-    private final UUID uuid;
+    static UUID anonymousUserUuid = new UUID(0,0);
 
-    public HytaleUserPrincipal(UUID uuid) {
+    private final UUID uuid;
+    private final String name;
+
+    public HytaleUserPrincipal(@Nonnull UUID uuid, @Nullable String name) {
         this.uuid = uuid;
+        this.name = name;
     }
 
     /**
@@ -43,7 +48,11 @@ public class HytaleUserPrincipal implements Principal, PermissionHolder {
 
     @Override
     public String getName() {
-        return this.uuid.toString();
+        return this.name;
+    }
+
+    public boolean isAnonymous() {
+        return anonymousUserUuid.equals(uuid);
     }
 
     @Override
@@ -54,5 +63,9 @@ public class HytaleUserPrincipal implements Principal, PermissionHolder {
     @Override
     public boolean hasPermission(@Nonnull String s, boolean b) {
         return PermissionsModule.get().hasPermission(uuid, s, b);
+    }
+
+    public static HytaleUserPrincipal getAnonymous() {
+        return new HytaleUserPrincipal(anonymousUserUuid, "Anonymous");
     }
 }
