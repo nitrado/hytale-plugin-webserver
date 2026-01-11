@@ -71,6 +71,9 @@ public abstract class TemplateServlet extends HttpServlet {
                     && hytaleUserPrincipal.hasPermission(Permissions.WEB_LIST_PLUGINS)
         ) {
             var pluginsByGroups = getPluginsByGroups();
+
+            parentPlugin.getLogger().atWarning().log("%v", pluginsByGroups);
+
             variables.put("pluginsByGroups", pluginsByGroups);
             variables.put("pluginGroups", pluginsByGroups.keySet().stream().sorted().toList());
         }

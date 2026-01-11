@@ -153,8 +153,12 @@ final class WebServer {
         this.logger.atInfo().log("Removed auth filters for plugin: %s/%s", identifier.getGroup(), identifier.getName());
     }
 
-    void addServlet(HttpServlet servlet, String pathSpec) {
+    void addServlet(HttpServlet servlet, String pathSpec, AuthFilter ... authFilters) throws IllegalPathSpecException {
         this.context.addServlet(new ServletHolder(servlet), pathSpec);
+
+        for  (var authFilter : authFilters) {
+            this.context.addFilter(authFilter, pathSpec, EnumSet.of(DispatcherType.REQUEST));
+        }
         this.logger.atInfo().log("Added servlet at path: %s", pathSpec);
     }
 

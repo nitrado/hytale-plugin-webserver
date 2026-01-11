@@ -12,6 +12,7 @@ import jakarta.servlet.Filter;
 import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServlet;
 import net.nitrado.hytale.plugins.webserver.authentication.AuthProvider;
+import net.nitrado.hytale.plugins.webserver.authentication.internal.AuthFilter;
 import net.nitrado.hytale.plugins.webserver.authentication.internal.BasicAuthProvider;
 import net.nitrado.hytale.plugins.webserver.authentication.internal.SessionAuthProvider;
 import net.nitrado.hytale.plugins.webserver.authentication.store.*;
@@ -98,8 +99,10 @@ public final class WebServerPlugin extends JavaPlugin {
         }
 
         this.setupCommands();
-        this.webServer.addServlet(
-                new StaticFileServlet(this.dataDir.resolve("theme/static"), "static", WebServer.class.getClassLoader()), "/static/*");
+        try {
+            this.webServer.addServlet(
+                    new StaticFileServlet(this.dataDir.resolve("theme/static"), "static", WebServer.class.getClassLoader()), "/static/*");
+        } catch (IllegalPathSpecException e) {}
     }
 
     @Override
@@ -147,15 +150,20 @@ public final class WebServerPlugin extends JavaPlugin {
     }
 
     void setupBuiltinRoutes() throws IOException {
-        this.webServer.addServlet(new LoginServlet(
-                this,
-                getLogger().getSubLogger("LoginServlet"),
-                this.userCredentialStore,
-                this.userCredentialValidator,
-                this.loginCodeStore
-        ), "/login");
+        try {
+            this.webServer.addServlet(new LoginServlet(
+                    this,
+                    getLogger().getSubLogger("LoginServlet"),
+                    this.userCredentialStore,
+                    this.userCredentialValidator,
+                    this.loginCodeStore
+            ), "/login", new AuthFilter(getDefaultAuthProviders()));
 
-        this.webServer.addServlet(new LogoutServlet(getLogger().getSubLogger("LogoutServlet")), "/logout");
+            this.webServer.addServlet(
+                    new LogoutServlet(getLogger().getSubLogger("LogoutServlet")), "/logout", new AuthFilter(getDefaultAuthProviders()));
+        } catch (IllegalPathSpecException e) {
+            // we don't make mistakes
+        }
     }
 
     @Override
