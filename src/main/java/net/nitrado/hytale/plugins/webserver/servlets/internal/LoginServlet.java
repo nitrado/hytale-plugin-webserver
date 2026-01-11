@@ -108,7 +108,7 @@ public final class LoginServlet extends TemplateServlet {
             session.setAttribute("uuid", loggedInUUID);
             session.setAttribute("username", loggedInUsername);
 
-            var redirectTarget = "/login";
+            var redirectTarget = "/";
             var redirectUrlParameter = req.getParameter("redirect_url");
             if (redirectUrlParameter != null && redirectUrlParameter.startsWith("/")) { // prevent open redirect
                 redirectTarget = redirectUrlParameter;

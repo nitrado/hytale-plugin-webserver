@@ -1,0 +1,24 @@
+<html th:replace="~{nitrado.webserver :: layout(~{::title}, ~{::section})}" lang="en">
+<head>
+    <title>Login | Nitrado:WebServer</title>
+
+    <link href="../static/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../static/css/bootstrap-icons.min.css" rel="stylesheet"/>
+
+    <style>
+        body {
+            background-color: RGBA(var(--bs-dark-rgb),var(--bs-bg-opacity,1))!important
+        }
+    </style>
+</head>
+<body >
+    <section id="index" data-bs-theme="dark" class="mt-5">
+        <div class="fs-1 text-center">Welcome Back</div>
+        <div th:if="${user.isAnonymous()}" class="d-flex justify-content-center mt-3">
+            <a href="/login" class="btn btn-lg btn-primary" style="min-width: 150px">
+                Log In
+            </a>
+        </div>
+    </section>
+</body>
+</html>

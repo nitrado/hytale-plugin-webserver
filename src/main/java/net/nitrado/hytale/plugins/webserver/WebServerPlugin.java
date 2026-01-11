@@ -18,6 +18,7 @@ import net.nitrado.hytale.plugins.webserver.authentication.internal.SessionAuthP
 import net.nitrado.hytale.plugins.webserver.authentication.store.*;
 import net.nitrado.hytale.plugins.webserver.commands.WebServerCommand;
 import net.nitrado.hytale.plugins.webserver.config.WebServerConfig;
+import net.nitrado.hytale.plugins.webserver.servlets.internal.IndexServlet;
 import net.nitrado.hytale.plugins.webserver.servlets.internal.LoginServlet;
 import net.nitrado.hytale.plugins.webserver.servlets.internal.LogoutServlet;
 import net.nitrado.hytale.plugins.webserver.servlets.StaticFileServlet;
@@ -151,6 +152,10 @@ public final class WebServerPlugin extends JavaPlugin {
 
     void setupBuiltinRoutes() throws IOException {
         try {
+            this.webServer.addServlet(new IndexServlet(
+                    this
+            ), "/", new AuthFilter(getDefaultAuthProviders()));
+
             this.webServer.addServlet(new LoginServlet(
                     this,
                     getLogger().getSubLogger("LoginServlet"),

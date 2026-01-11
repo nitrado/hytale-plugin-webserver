@@ -12,8 +12,8 @@
             <div class="row">
                 <div class="col-sm-5 col-md-4 col-lg-3 gx-5 nitrado-webserver-sidebar">
                     <div class="d-flex flex-column p-3 text-bg-dark h-100  rounded-3">
-                        <span th:if="${pluginGroups}" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
-                            <span class="fs-4">Plugins</span>
+                        <span th:if="${pluginGroups}" class="d-flex align-items-center">
+                            <div class="fs-4">Web Plugins</div>
                         </span>
                         <ul class="nav nav-pills flex-column mb-auto mt-2">
                             <li th:each="group, groupStat : ${pluginGroups}" class="mb-1">

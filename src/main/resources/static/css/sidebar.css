@@ -1,3 +1,7 @@
+.nitrado-webserver-sidebar {
+    height: calc(100vh - 6rem);
+}
+
 .btn-toggle-nav a:hover, .btn-toggle-nav a:focus {
     background-color: var(--bs-tertiary-bg);
 }
