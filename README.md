@@ -286,7 +286,7 @@ tasks they are intended for.
 Service accounts will be automatically added to the `SERVICE_ACCOUNT` group to make them easier to identify in
 permission management.
 
-Service Accounts can be either created through the Web UI or provisioned automatically.
+Service Accounts can be either created through the Web UI (not implemented yet) or provisioned automatically.
 
 ##### Authenticating as a Service Account
 You can then use a Service Account password to authenticate against the web server using Basic Auth, such as with:
