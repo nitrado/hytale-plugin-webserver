@@ -8,7 +8,6 @@ import net.nitrado.hytale.plugins.webserver.authentication.AuthProvider;
 import net.nitrado.hytale.plugins.webserver.authentication.HytaleUserPrincipal;
 
 import java.io.IOException;
-import java.util.UUID;
 
 /**
  * Internal filter that processes authentication for incoming requests.
@@ -52,14 +51,19 @@ public final class AuthFilter implements Filter {
 
         // We are not authenticated, so we map to the anonymous user
         var wrapped = new UserPrincipalRequestWrapper(req, HytaleUserPrincipal.getAnonymous());
-        filterChain.doFilter(wrapped, response);
 
-        if (res.getStatus() == HttpServletResponse.SC_UNAUTHORIZED) {
+        // Use a response wrapper to capture 401 status before it commits
+        var responseWrapper = new StatusCapturingResponseWrapper(res);
+        filterChain.doFilter(wrapped, responseWrapper);
+
+        if (responseWrapper.isUnauthorized()) {
             for (AuthProvider authProvider : authProviders) {
                 if (authProvider.challenge(req, res)) {
                     return;
                 }
             }
+            // No provider handled the challenge, commit the 401
+            responseWrapper.commitUnauthorized();
         }
     }
 }

@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Set;
-import java.util.UUID;
 import java.util.WeakHashMap;
 
 public final class AuthorizationWrapperServlet extends HttpServlet {
@@ -21,8 +20,6 @@ public final class AuthorizationWrapperServlet extends HttpServlet {
 
     private final HttpServlet delegate;
     private final HytaleLogger logger;
-
-    static String anonymousUserName = (new UUID(0,0)).toString();
 
     public AuthorizationWrapperServlet(HytaleLogger logger, HttpServlet delegate) {
         this.delegate = delegate;
@@ -127,7 +124,7 @@ public final class AuthorizationWrapperServlet extends HttpServlet {
             return false;
         }
 
-        return principal.getName().equals(anonymousUserName);
+        return principal.isAnonymous();
     }
 
     private RequirePermissions[] findPermissionAnnotations(Class<?> servletClass, String httpMethod) {

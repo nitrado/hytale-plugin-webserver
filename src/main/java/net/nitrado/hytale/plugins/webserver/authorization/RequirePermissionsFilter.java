@@ -7,13 +7,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.nitrado.hytale.plugins.webserver.authentication.HytaleUserPrincipal;
 
 import java.io.IOException;
-import java.util.UUID;
 
 public final class RequirePermissionsFilter implements Filter {
 
     protected String[] permissions;
     protected boolean any = false;
-    static String anonymousUserName = (new UUID(0,0)).toString();
 
     public RequirePermissionsFilter(String ...permissions) {
         this(false, permissions);
@@ -60,7 +58,7 @@ public final class RequirePermissionsFilter implements Filter {
             return false;
         }
 
-        return principal.getName().equals(anonymousUserName);
+        return principal.isAnonymous();
     }
 
     protected boolean hasAllPermissions(PermissionHolder holder) {
