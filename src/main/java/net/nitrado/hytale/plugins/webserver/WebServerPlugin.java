@@ -102,7 +102,7 @@ public final class WebServerPlugin extends JavaPlugin {
         this.setupCommands();
         try {
             this.webServer.addServlet(
-                    new StaticFileServlet(this.dataDir.resolve("theme/static"), "static", WebServer.class.getClassLoader()), "/static/*");
+                new StaticFileServlet(this.dataDir.resolve("theme/static"), "static", WebServer.class.getClassLoader()), "/static/*");
         } catch (IllegalPathSpecException e) {}
     }
 
@@ -153,19 +153,19 @@ public final class WebServerPlugin extends JavaPlugin {
     void setupBuiltinRoutes() throws IOException {
         try {
             this.webServer.addServlet(new IndexServlet(
-                    this
+                this
             ), "", new AuthFilter(getDefaultAuthProviders()));
 
             this.webServer.addServlet(new LoginServlet(
-                    this,
-                    getLogger().getSubLogger("LoginServlet"),
-                    this.userCredentialStore,
-                    this.userCredentialValidator,
-                    this.loginCodeStore
+                this,
+                getLogger().getSubLogger("LoginServlet"),
+                this.userCredentialStore,
+                this.userCredentialValidator,
+                this.loginCodeStore
             ), "/login", new AuthFilter(getDefaultAuthProviders()));
 
             this.webServer.addServlet(
-                    new LogoutServlet(getLogger().getSubLogger("LogoutServlet")), "/logout", new AuthFilter(getDefaultAuthProviders()));
+                new LogoutServlet(getLogger().getSubLogger("LogoutServlet")), "/logout", new AuthFilter(getDefaultAuthProviders()));
         } catch (IllegalPathSpecException e) {
             // we don't make mistakes
         }
@@ -194,8 +194,8 @@ public final class WebServerPlugin extends JavaPlugin {
         combined.add(this.serviceAccountCredentialValidator);
 
         return new AuthProvider[]{
-                new SessionAuthProvider(getLogger().getSubLogger("SessionAuthProvider")),
-                new BasicAuthProvider(combined),
+            new SessionAuthProvider(getLogger().getSubLogger("SessionAuthProvider")),
+            new BasicAuthProvider(combined),
         };
     }
 
@@ -380,8 +380,13 @@ public final class WebServerPlugin extends JavaPlugin {
 
         var name = document.getString("Name");
 
-        // Delete the service account every time to also reset its permissions and groups
-        this.deleteServiceAccount(name);
+        if (!name.startsWith("serviceaccount.")) {
+            name = "serviceaccount." + name;
+        }
+
+        var uuid = UUID.nameUUIDFromBytes(("nitrado:serviceaccount:" + name).getBytes());
+
+        this.deleteServiceAccount(uuid);
 
         var enabled = document.getBoolean("Enabled");
         if (!enabled) {
@@ -389,8 +394,7 @@ public final class WebServerPlugin extends JavaPlugin {
         }
 
         var passwordHash = document.getString("PasswordHash");
-        this.createServiceAccountBcrypt(name, passwordHash);
-        var uuid = this.serviceAccountCredentialStore.getUUIDByName(name);
+        this.serviceAccountCredentialStore.importUserCredential(uuid, name, passwordHash);
 
         var groups = document.getList("Groups", String.class);
         var permissions = document.getList("Permissions", String.class);
@@ -398,7 +402,6 @@ public final class WebServerPlugin extends JavaPlugin {
         for (String group : groups) {
             PermissionsModule.get().addUserToGroup(uuid, group);
         }
-
         PermissionsModule.get().addUserPermission(uuid, Set.copyOf(permissions));
     }
 
