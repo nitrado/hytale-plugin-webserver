@@ -9,7 +9,6 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.plugin.PluginBase;
 import com.hypixel.hytale.server.core.util.Config;
 import jakarta.servlet.Filter;
-import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServlet;
 import net.nitrado.hytale.plugins.webserver.authentication.AuthProvider;
 import net.nitrado.hytale.plugins.webserver.authentication.internal.AuthFilter;
@@ -338,27 +337,11 @@ public final class WebServerPlugin extends JavaPlugin {
         return this.webServer.getRegisteredPlugins();
     }
 
-    UUID createServiceAccount(String name, String password) throws IOException {
-        UUID uuid = UUID.randomUUID();
-
-        if (!name.startsWith("serviceaccount.")) {
-            name = "serviceaccount." + name;
-        }
-
-        try {
-            this.serviceAccountCredentialStore.setUserCredential(uuid, name, password);
-            PermissionsModule.get().addUserToGroup(uuid, "SERVICE_ACCOUNT");
-            return uuid;
-
-        } catch (IOException e) {
-            getLogger().at(Level.SEVERE).log("failed to create service account credentials: %s", e.getMessage());
-            throw e;
-        }
+    UUID createServiceAccountBcrypt(String name, String passwordHash) throws IOException {
+        return this.createServiceAccountBcrypt(UUID.randomUUID(), name, passwordHash);
     }
 
-    UUID createServiceAccountBcrypt(String name, String passwordHash) throws IOException {
-        UUID uuid = UUID.randomUUID();
-
+    UUID createServiceAccountBcrypt(@Nonnull UUID uuid, String name, String passwordHash) throws IOException {
         if (!name.startsWith("serviceaccount.")) {
             name = "serviceaccount." + name;
         }
@@ -381,7 +364,7 @@ public final class WebServerPlugin extends JavaPlugin {
         var name = document.getString("Name");
 
         // Delete the service account every time to also reset its permissions and groups
-        this.deleteServiceAccount(name);
+        var uuid = this.deleteServiceAccount(name);
 
         var enabled = document.getBoolean("Enabled");
         if (!enabled) {
@@ -389,8 +372,12 @@ public final class WebServerPlugin extends JavaPlugin {
         }
 
         var passwordHash = document.getString("PasswordHash");
-        this.createServiceAccountBcrypt(name, passwordHash);
-        var uuid = this.serviceAccountCredentialStore.getUUIDByName(name);
+
+        if (uuid == null) {
+            uuid = this.createServiceAccountBcrypt(name, passwordHash);
+        } else {
+            this.createServiceAccountBcrypt(uuid, name, passwordHash);
+        }
 
         var groups = document.getList("Groups", String.class);
         var permissions = document.getList("Permissions", String.class);
@@ -426,13 +413,18 @@ public final class WebServerPlugin extends JavaPlugin {
         }
     }
 
-    void deleteServiceAccount(String name) throws IOException {
+    UUID deleteServiceAccount(String name) throws IOException {
+        if (!name.startsWith("serviceaccount.")) {
+            name = "serviceaccount." + name;
+        }
+
         var uuid = this.serviceAccountCredentialStore.getUUIDByName(name);
         if (uuid == null) {
-            return;
+            return null;
         }
 
         this.deleteServiceAccount(uuid);
+        return uuid;
     }
 
     private WebServer getWebServer() {
