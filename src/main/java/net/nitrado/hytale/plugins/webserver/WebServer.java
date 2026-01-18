@@ -20,6 +20,7 @@ import jakarta.servlet.SessionTrackingMode;
 import jakarta.servlet.http.HttpServlet;
 import javax.net.ssl.SSLContext;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Level;
@@ -84,14 +85,36 @@ final class WebServer {
         pluginToAuthProviders.put(plugin.getIdentifier(), authProviders);
     }
 
+    /**
+     * Builds the decoded path prefix for a plugin (for servlet mappings).
+     * Jetty matches servlet paths against decoded request URIs.
+     */
+    private String buildPluginPathPrefix(PluginIdentifier identifier) {
+        return "/" + identifier.getGroup() + "/" + identifier.getName();
+    }
+
+    /**
+     * Builds the encoded path prefix for a plugin (for filter mappings).
+     * Jetty matches filter paths against the raw (encoded) request URI.
+     */
+    private String buildEncodedPluginPathPrefix(PluginIdentifier identifier) {
+        try {
+            return new URI(null, null, "/" + identifier.getGroup() + "/" + identifier.getName(), null).getRawPath();
+        } catch (java.net.URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid plugin identifier: " + identifier, e);
+        }
+    }
+
     void addServlet(PluginBase plugin, String pathSpec, HttpServlet servlet, Filter[] filters, AuthProvider[] defaultAuthProviders) throws IllegalPathSpecException {
         if (!pathSpec.isEmpty() && !pathSpec.startsWith("/")) {
             throw new IllegalPathSpecException();
         }
 
         var identifier = plugin.getIdentifier();
-        var prefix = String.format("/%s/%s", identifier.getGroup(), identifier.getName());
+        var prefix = buildPluginPathPrefix(identifier);
+        var encodedPrefix = buildEncodedPluginPathPrefix(identifier);
         var fullPathSpec = prefix + pathSpec;
+        var encodedFullPathSpec = encodedPrefix + pathSpec;
 
         this.addServlet(new AuthorizationWrapperServlet(this.logger, servlet), fullPathSpec);
 
@@ -101,12 +124,12 @@ final class WebServer {
             var authProviders = pluginToAuthProviders.getOrDefault(plugin.getIdentifier(), defaultAuthProviders);
             var authFilter = new AuthFilter(authProviders);
 
-            this.context.addFilter(authFilter, prefix, EnumSet.of(DispatcherType.REQUEST));
-            this.context.addFilter(authFilter, prefix + "/*", EnumSet.of(DispatcherType.REQUEST));
+            this.context.addFilter(authFilter, encodedPrefix, EnumSet.of(DispatcherType.REQUEST));
+            this.context.addFilter(authFilter, encodedPrefix + "/*", EnumSet.of(DispatcherType.REQUEST));
         }
 
         for (var filter :  filters) {
-            this.context.addFilter(filter, fullPathSpec, EnumSet.of(DispatcherType.REQUEST));
+            this.context.addFilter(filter, encodedFullPathSpec, EnumSet.of(DispatcherType.REQUEST));
         }
 
         this.pluginToPathSpecs.computeIfAbsent(identifier, k -> new ArrayList<>());
@@ -120,11 +143,13 @@ final class WebServer {
 
         var identifier = plugin.getIdentifier();
 
-        var prefix = String.format("/%s/%s", identifier.getGroup(), identifier.getName());
+        var prefix = buildPluginPathPrefix(identifier);
+        var encodedPrefix = buildEncodedPluginPathPrefix(identifier);
         var fullPathSpec = prefix + pathSpec;
+        var encodedFullPathSpec = encodedPrefix + pathSpec;
 
         this.removeServlet(fullPathSpec);
-        this.removeFilters(fullPathSpec, false);
+        this.removeFilters(encodedFullPathSpec, false);
         this.pluginToPathSpecs.computeIfAbsent(identifier, k -> new ArrayList<>());
         this.pluginToPathSpecs.get(identifier).remove(pathSpec);
     }
@@ -145,10 +170,10 @@ final class WebServer {
 
     void removeAuthFilters(PluginBase plugin) {
         var identifier = plugin.getIdentifier();
-        var prefix = String.format("/%s/%s", identifier.getGroup(), identifier.getName());
+        var encodedPrefix = buildEncodedPluginPathPrefix(identifier);
 
-        this.removeFilters(prefix, true);
-        this.removeFilters(prefix + "/*", true);
+        this.removeFilters(encodedPrefix, true);
+        this.removeFilters(encodedPrefix + "/*", true);
 
         this.logger.atInfo().log("Removed auth filters for plugin: %s/%s", identifier.getGroup(), identifier.getName());
     }
