@@ -164,10 +164,6 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
         }
 
         try {
-            // Try loading from PEM file using standard PemCertificateProvider approach
-            PemCertificateProvider pemProvider = new PemCertificateProvider(
-                    certPath, storagePath.resolve("domain.key"));
-            
             // Validate certificate is not expired
             java.security.cert.CertificateFactory cf = 
                     java.security.cert.CertificateFactory.getInstance("X.509");
@@ -199,35 +195,39 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
         logger.accept("Obtaining new certificate for domain: " + domain);
 
         // Create or login to account
-        Session session = new Session(acmeServerUri);
-        Account account = new AccountBuilder()
-                .agreeToTermsOfService()
-                .useKeyPair(accountKeyPair)
-                .create(session);
+        // Set context classloader to ensure ServiceLoader finds ACME providers in shaded JAR
+        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
+            Session session = new Session(acmeServerUri);
+            Account account = new AccountBuilder()
+                    .agreeToTermsOfService()
+                    .useKeyPair(accountKeyPair)
+                    .create(session);
 
-        logger.accept("Account registered/logged in");
+            logger.accept("Account registered/logged in");
 
-        // Order the certificate
-        Order order = account.newOrder()
-                .domain(domain)
-                .create();
+            // Order the certificate
+            Order order = account.newOrder()
+                    .domain(domain)
+                    .create();
 
-        logger.accept("Order created for domain: " + domain);
+            logger.accept("Order created for domain: " + domain);
 
-        // Process authorizations
-        for (Authorization auth : order.getAuthorizations()) {
-            if (auth.getStatus() == Status.VALID) {
-                continue;
+            // Process authorizations
+            for (Authorization auth : order.getAuthorizations()) {
+                if (auth.getStatus() == Status.VALID) {
+                    continue;
+                }
+                processAuthorization(auth);
             }
-            processAuthorization(auth);
-        }
 
-        // Generate CSR and finalize order
-        CSRBuilder csrBuilder = new CSRBuilder();
-        csrBuilder.addDomain(domain);
-        csrBuilder.sign(domainKeyPair);
+            // Generate CSR and finalize order
+            CSRBuilder csrBuilder = new CSRBuilder();
+            csrBuilder.addDomain(domain);
+            csrBuilder.sign(domainKeyPair);
 
-        order.execute(csrBuilder.getEncoded());
+            order.execute(csrBuilder.getEncoded());
 
         // Wait for order to be ready
         int attempts = 0;
@@ -261,6 +261,9 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
         }
 
         logger.accept("Certificate obtained successfully, expires: " + certificateExpiry);
+        } finally {
+            Thread.currentThread().setContextClassLoader(originalClassLoader);
+        }
     }
 
     private void processAuthorization(Authorization auth) throws Exception {
