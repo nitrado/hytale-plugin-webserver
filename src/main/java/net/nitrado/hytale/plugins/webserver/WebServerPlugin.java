@@ -124,7 +124,7 @@ public final class WebServerPlugin extends JavaPlugin {
     }
 
     void setupAnonymousUser() {
-        PermissionsModule.get().addUserToGroup(new UUID(0,0), "ANONYMOUS");
+        PermissionsModule.get().addGroupPermission("ANONYMOUS", Set.of("# Add permissions for unauthenticated web requests here"));
     }
 
     void setupCommands() {
