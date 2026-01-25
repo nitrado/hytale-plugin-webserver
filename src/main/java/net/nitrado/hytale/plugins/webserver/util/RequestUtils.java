@@ -95,6 +95,7 @@ public final class RequestUtils {
      * - The query param equals the full media type (e.g., "application/x.custom+json;version=1")
      * - The query param matches the subtype (e.g., "json" matches "application/json")
      * - The query param matches a suffix (e.g., "json" matches "application/x.custom+json" if "application/json" is not supported)
+     * - The query param matches the subtype with parameters (e.g., "x.custom+json;version=1" matches "application/x.custom+json;version=1")
      */
     private static String findContentTypeByQueryParam(String queryParam, String[] supportedContentTypes) {
         String suffixMatch = null;
@@ -111,6 +112,12 @@ public final class RequestUtils {
                 return supported;
             }
 
+            // Match against subtype with parameters (e.g., "x.custom+json;version=1")
+            String subtypeWithParams = extractSubtypeWithParams(supported);
+            if (subtypeWithParams.equals(queryParam)) {
+                return supported;
+            }
+
             // Check for suffix match (e.g., "json" matches "x.custom+json")
             if (suffixMatch == null && hasSuffixSubtype(subtype, queryParam)) {
                 suffixMatch = supported;
@@ -119,6 +126,18 @@ public final class RequestUtils {
 
         // Return suffix match only if no exact subtype match was found
         return suffixMatch;
+    }
+
+    /**
+     * Extracts the subtype with parameters from a media type.
+     * E.g., "x.custom+json;version=1" from "application/x.custom+json;version=1".
+     */
+    private static String extractSubtypeWithParams(String mediaType) {
+        int slashIndex = mediaType.indexOf('/');
+        if (slashIndex < 0) {
+            return mediaType;
+        }
+        return mediaType.substring(slashIndex + 1);
     }
 
     /**
@@ -158,6 +177,7 @@ public final class RequestUtils {
             String[] tokens = part.trim().split(";");
             String mediaType = tokens[0].trim();
             double quality = 1.0;
+            StringBuilder mediaTypeParams = new StringBuilder();
 
             for (int i = 1; i < tokens.length; i++) {
                 String param = tokens[i].trim();
@@ -167,10 +187,13 @@ public final class RequestUtils {
                     } catch (NumberFormatException e) {
                         quality = 1.0;
                     }
+                } else {
+                    // Preserve non-quality parameters as part of the media type
+                    mediaTypeParams.append(";").append(param);
                 }
             }
 
-            entries.add(new AcceptEntry(mediaType, quality));
+            entries.add(new AcceptEntry(mediaType + mediaTypeParams, quality));
         }
 
         return entries;
@@ -191,9 +214,25 @@ public final class RequestUtils {
             return true;
         }
 
+        // Compare base types (without parameters) for exact match
+        String acceptBase = stripParameters(acceptMediaType);
+        String supportedBase = stripParameters(supportedMediaType);
+        if (acceptBase.equals(supportedBase)) {
+            return true;
+        }
+
         // Handle suffix-based matching (e.g., application/json matches application/x.custom+json)
         // Only if the exact type is not in the supported list
         return isSuffixMatch(acceptMediaType, supportedMediaType) && !containsExactType(acceptMediaType, allSupportedTypes);
+    }
+
+    /**
+     * Strips parameters from a media type.
+     * E.g., "application/json;charset=utf-8" becomes "application/json".
+     */
+    private static String stripParameters(String mediaType) {
+        int semicolonIndex = mediaType.indexOf(';');
+        return semicolonIndex >= 0 ? mediaType.substring(0, semicolonIndex) : mediaType;
     }
 
     /**
