@@ -319,12 +319,12 @@ A service account with `Enabled` set to `true` will be automatically created or 
 to not clutter your permission management.
 
 #### The Anonymous User
-This plugin automatically creates a permissions entry for a user with the UUID `00000000-0000-0000-0000-000000000000` in
-group `ANONYMOUS`. Un-authenticated requests will appear as that user, with the permissions that have been assigned to
-that user.
+This plugin automatically creates an `ANONYMOUS` permission group. Un-authenticated requests will have their permissions
+checked against this group.
 
 With this mechanism, plugin developers can set up permissions for all actions provided by their plugins, but still
-leave it up to server admins to decide which of those should be available to the public.
+leave it up to server admins to decide which of those should be available to the public by adding permissions to the
+`ANONYMOUS` group.
 
 Please note: While failed permission checks for an authenticated user result in a `403 Forbidden`, failed permission
 checks for the anonymous user result in a `401 Unauthorized`, which may then trigger an authentication flow.
