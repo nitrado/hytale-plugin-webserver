@@ -42,7 +42,7 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
     /** Staging ACME server URI (for testing, issues untrusted certs) */
     public static final String LETSENCRYPT_STAGING = "acme://letsencrypt.org/staging";
 
-    private static final int CHALLENGE_PORT = 80;
+    private static final int DEFAULT_CHALLENGE_PORT = 80;
     private static final Duration RENEWAL_THRESHOLD = Duration.ofDays(30);
     private static final int MAX_POLL_ATTEMPTS = 60;
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(3);
@@ -51,6 +51,7 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
     private final String acmeServerUri;
     private final Path storagePath;
     private final Consumer<String> logger;
+    private final int challengePort;
 
     // Pending HTTP-01 challenges: token -> authorization content
     private final Map<String, String> pendingChallenges = new ConcurrentHashMap<>();
@@ -68,7 +69,7 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
      * @param useProduction true for production, false for staging (recommended for testing)
      */
     public LetsEncryptCertificateProvider(String domain, Path storagePath, boolean useProduction) {
-        this(domain, storagePath, useProduction, msg -> {});
+        this(domain, storagePath, useProduction, DEFAULT_CHALLENGE_PORT, msg -> {});
     }
 
     /**
@@ -77,13 +78,15 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
      * @param domain        the domain name for the certificate
      * @param storagePath   path to store account keys and certificates
      * @param useProduction true for production, false for staging
+     * @param challengePort port to use for the HTTP-01 challenge server (must be reachable as port 80 from the internet)
      * @param logger        consumer for log messages
      */
     public LetsEncryptCertificateProvider(String domain, Path storagePath, boolean useProduction,
-                                          Consumer<String> logger) {
+                                          int challengePort, Consumer<String> logger) {
         this.domain = domain;
         this.storagePath = storagePath;
         this.acmeServerUri = useProduction ? LETSENCRYPT_PRODUCTION : LETSENCRYPT_STAGING;
+        this.challengePort = challengePort;
         this.logger = logger;
     }
 
@@ -164,10 +167,6 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
         }
 
         try {
-            // Try loading from PEM file using standard PemCertificateProvider approach
-            PemCertificateProvider pemProvider = new PemCertificateProvider(
-                    certPath, storagePath.resolve("domain.key"));
-            
             // Validate certificate is not expired
             java.security.cert.CertificateFactory cf = 
                     java.security.cert.CertificateFactory.getInstance("X.509");
@@ -199,35 +198,39 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
         logger.accept("Obtaining new certificate for domain: " + domain);
 
         // Create or login to account
-        Session session = new Session(acmeServerUri);
-        Account account = new AccountBuilder()
-                .agreeToTermsOfService()
-                .useKeyPair(accountKeyPair)
-                .create(session);
+        // Set context classloader to ensure ServiceLoader finds ACME providers in shaded JAR
+        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
+            Session session = new Session(acmeServerUri);
+            Account account = new AccountBuilder()
+                    .agreeToTermsOfService()
+                    .useKeyPair(accountKeyPair)
+                    .create(session);
 
-        logger.accept("Account registered/logged in");
+            logger.accept("Account registered/logged in");
 
-        // Order the certificate
-        Order order = account.newOrder()
-                .domain(domain)
-                .create();
+            // Order the certificate
+            Order order = account.newOrder()
+                    .domain(domain)
+                    .create();
 
-        logger.accept("Order created for domain: " + domain);
+            logger.accept("Order created for domain: " + domain);
 
-        // Process authorizations
-        for (Authorization auth : order.getAuthorizations()) {
-            if (auth.getStatus() == Status.VALID) {
-                continue;
+            // Process authorizations
+            for (Authorization auth : order.getAuthorizations()) {
+                if (auth.getStatus() == Status.VALID) {
+                    continue;
+                }
+                processAuthorization(auth);
             }
-            processAuthorization(auth);
-        }
 
-        // Generate CSR and finalize order
-        CSRBuilder csrBuilder = new CSRBuilder();
-        csrBuilder.addDomain(domain);
-        csrBuilder.sign(domainKeyPair);
+            // Generate CSR and finalize order
+            CSRBuilder csrBuilder = new CSRBuilder();
+            csrBuilder.addDomain(domain);
+            csrBuilder.sign(domainKeyPair);
 
-        order.execute(csrBuilder.getEncoded());
+            order.execute(csrBuilder.getEncoded());
 
         // Wait for order to be ready
         int attempts = 0;
@@ -261,6 +264,9 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
         }
 
         logger.accept("Certificate obtained successfully, expires: " + certificateExpiry);
+        } finally {
+            Thread.currentThread().setContextClassLoader(originalClassLoader);
+        }
     }
 
     private void processAuthorization(Authorization auth) throws Exception {
@@ -276,7 +282,7 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
 
         // Start challenge server
         startChallengeServer();
-        logger.accept("HTTP-01 challenge server started on port " + CHALLENGE_PORT);
+        logger.accept("HTTP-01 challenge server started on port " + challengePort);
 
         try {
             // Trigger validation
@@ -310,7 +316,7 @@ public final class LetsEncryptCertificateProvider implements CertificateProvider
             return; // Already running
         }
 
-        challengeServer = HttpServer.create(new InetSocketAddress(CHALLENGE_PORT), 0);
+        challengeServer = HttpServer.create(new InetSocketAddress(challengePort), 0);
         challengeServer.createContext("/.well-known/acme-challenge/", exchange -> {
             String path = exchange.getRequestURI().getPath();
             String token = path.substring(path.lastIndexOf('/') + 1);
