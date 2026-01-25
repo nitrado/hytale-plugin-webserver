@@ -4,7 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.checkerframework.checker.nullness.compatqual.NullableDecl;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class RequestUtils {
     private RequestUtils() {}
@@ -73,6 +75,11 @@ public final class RequestUtils {
         int bestSupportedIndex = Integer.MAX_VALUE;
 
         for (AcceptEntry entry : acceptEntries) {
+            // RFC 9110: q=0 means "not acceptable" - skip these entries
+            if (entry.quality <= 0) {
+                continue;
+            }
+
             for (int i = 0; i < supportedContentTypes.length; i++) {
                 String supported = supportedContentTypes[i];
                 if (matches(entry.mediaType, supported, supportedContentTypes)) {
@@ -178,19 +185,24 @@ public final class RequestUtils {
             String mediaType = tokens[0].trim();
             double quality = 1.0;
             StringBuilder mediaTypeParams = new StringBuilder();
+            boolean foundQuality = false;
 
             for (int i = 1; i < tokens.length; i++) {
                 String param = tokens[i].trim();
-                if (param.startsWith("q=")) {
+                // Check for quality parameter (case-insensitive per RFC)
+                if (param.toLowerCase().startsWith("q=")) {
                     try {
                         quality = Double.parseDouble(param.substring(2).trim());
                     } catch (NumberFormatException e) {
                         quality = 1.0;
                     }
-                } else {
-                    // Preserve non-quality parameters as part of the media type
+                    foundQuality = true;
+                } else if (!foundQuality) {
+                    // Only preserve parameters BEFORE q= as part of the media type
+                    // Parameters after q= are accept-extensions (RFC 9110) and should be ignored
                     mediaTypeParams.append(";").append(param);
                 }
+                // Parameters after q= are accept-extensions - intentionally ignored
             }
 
             entries.add(new AcceptEntry(mediaType + mediaTypeParams, quality));
@@ -204,26 +216,91 @@ public final class RequestUtils {
             return true;
         }
 
-        if (acceptMediaType.endsWith("/*")) {
-            String acceptType = acceptMediaType.substring(0, acceptMediaType.indexOf('/'));
-            String supportedType = supportedMediaType.substring(0, supportedMediaType.indexOf('/'));
+        // Normalize to lowercase for case-insensitive comparison (RFC 2045)
+        String acceptLower = acceptMediaType.toLowerCase();
+        String supportedLower = supportedMediaType.toLowerCase();
+
+        if (acceptLower.endsWith("/*")) {
+            String acceptType = acceptLower.substring(0, acceptLower.indexOf('/'));
+            String supportedType = supportedLower.substring(0, supportedLower.indexOf('/'));
             return acceptType.equals(supportedType);
         }
 
-        if (acceptMediaType.equals(supportedMediaType)) {
-            return true;
-        }
+        // Extract base types and parameters
+        String acceptBase = stripParameters(acceptLower);
+        String supportedBase = stripParameters(supportedLower);
+        Map<String, String> acceptParams = parseParameters(acceptLower);
+        Map<String, String> supportedParams = parseParameters(supportedLower);
 
-        // Compare base types (without parameters) for exact match
-        String acceptBase = stripParameters(acceptMediaType);
-        String supportedBase = stripParameters(supportedMediaType);
+        // Exact base type match
         if (acceptBase.equals(supportedBase)) {
-            return true;
+            // If accept has parameters, check if they're compatible with supported
+            if (!acceptParams.isEmpty()) {
+                // If supported has parameters, accept params must match them
+                if (!supportedParams.isEmpty()) {
+                    return parametersMatch(acceptParams, supportedParams);
+                }
+                // Supported has no parameters - accept any client params
+                // (e.g., client requests application/json;charset=utf-8, server has application/json)
+                return true;
+            }
+            // Accept has no parameters - matches if supported also has no parameters,
+            // or if we allow flexible matching for base types
+            return supportedParams.isEmpty() || acceptParams.isEmpty();
         }
 
         // Handle suffix-based matching (e.g., application/json matches application/x.custom+json)
         // Only if the exact type is not in the supported list
-        return isSuffixMatch(acceptMediaType, supportedMediaType) && !containsExactType(acceptMediaType, allSupportedTypes);
+        // And only when accept has no specific parameters (flexible matching)
+        if (acceptParams.isEmpty() && isSuffixMatch(acceptMediaType, supportedMediaType)
+                && !containsExactType(acceptMediaType, allSupportedTypes)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Parses parameters from a media type into a map.
+     * Parameter names are normalized to lowercase per RFC 2045.
+     */
+    private static Map<String, String> parseParameters(String mediaType) {
+        Map<String, String> params = new LinkedHashMap<>();
+        int semicolonIndex = mediaType.indexOf(';');
+        if (semicolonIndex < 0) {
+            return params;
+        }
+
+        String paramString = mediaType.substring(semicolonIndex + 1);
+        String[] parts = paramString.split(";");
+        for (String part : parts) {
+            String trimmed = part.trim();
+            int eqIndex = trimmed.indexOf('=');
+            if (eqIndex > 0) {
+                String name = trimmed.substring(0, eqIndex).trim().toLowerCase();
+                String value = trimmed.substring(eqIndex + 1).trim();
+                // Remove quotes if present
+                if (value.startsWith("\"") && value.endsWith("\"")) {
+                    value = value.substring(1, value.length() - 1);
+                }
+                params.put(name, value);
+            }
+        }
+        return params;
+    }
+
+    /**
+     * Checks if accept parameters match supported parameters.
+     * All accept parameters must be present in supported with same values.
+     */
+    private static boolean parametersMatch(Map<String, String> acceptParams, Map<String, String> supportedParams) {
+        for (Map.Entry<String, String> entry : acceptParams.entrySet()) {
+            String supportedValue = supportedParams.get(entry.getKey());
+            if (supportedValue == null || !supportedValue.equals(entry.getValue())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
