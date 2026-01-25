@@ -83,10 +83,16 @@ public final class TlsConfig {
                         (config, value) -> config.production = value,
                         config -> config.production
                 ).add()
+                .append(
+                        new KeyedCodec<>("AgreeToTermsOfService", Codec.BOOLEAN),
+                        (config, value) -> config.agreeToTermsOfService = value,
+                        config -> config.agreeToTermsOfService
+                ).add()
                 .build();
 
         private String domain = null;
         private boolean production = false;
+        private boolean agreeToTermsOfService = false;
 
         public String getDomain() {
             return domain;
@@ -94,6 +100,10 @@ public final class TlsConfig {
 
         public boolean isProduction() {
             return production;
+        }
+
+        public boolean isAgreeToTermsOfService() {
+            return agreeToTermsOfService;
         }
     }
 
@@ -183,6 +193,11 @@ public final class TlsConfig {
                 if (letsEncrypt.getDomain() == null) {
                     throw new IllegalArgumentException(
                             "LetsEncrypt certificate provider requires LetsEncrypt.Domain");
+                }
+                if (!letsEncrypt.isAgreeToTermsOfService()) {
+                    throw new IllegalArgumentException(
+                            "LetsEncrypt certificate provider requires LetsEncrypt.AgreeToTermsOfService to be true. " +
+                            "Please review the Let's Encrypt Subscriber Agreement at https://letsencrypt.org/repository/");
                 }
                 Path certStorage = storagePath.resolve("letsencrypt");
                 yield new LetsEncryptCertificateProvider(
