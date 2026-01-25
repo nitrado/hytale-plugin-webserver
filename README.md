@@ -98,6 +98,9 @@ TLS is enabled by default using a self-signed certificate. To customize TLS sett
 ```
 
 **Let's Encrypt configuration:**
+
+Using Let's Encrypt requires agreement to their [Subscriber Agreement](https://letsencrypt.org/repository/). You must set `AgreeToTermsOfService` to `true` to acknowledge this.
+
 ```json
 {
   "Tls": {
