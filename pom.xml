@@ -10,6 +10,7 @@
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
+        <hytale.server.version>2026.01.24-6e2d4fc36</hytale.server.version>
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -31,7 +32,7 @@
         <dependency>
             <groupId>com.hypixel.hytale</groupId>
             <artifactId>Server</artifactId>
-            <version>2026.01.24-6e2d4fc36</version>
+            <version>${hytale.server.version}</version>
             <scope>provided</scope>
         </dependency>
         <!-- Jetty Server -->
