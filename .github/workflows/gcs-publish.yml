@@ -1,0 +1,14 @@
+name: GCS Publish
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gcs-publish:
+    uses: nitrado/hytale-plugin-workflows/.github/workflows/gcs-publish.yml@v1
+    secrets: inherit
+
+

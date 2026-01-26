@@ -1,0 +1,31 @@
+name: CurseForge Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      game-endpoint:
+        description: "The subdomain of curseforge.com"
+        type: string
+        default: "authors"
+      game-versions:
+        description: "Game version IDs (comma-separated)"
+        type: string
+        default: ""
+      relations:
+        description: "Project relations (format: projectslug:relationType, comma-separated)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  curseforge-publish:
+    uses: nitrado/hytale-plugin-workflows/.github/workflows/curseforge-publish.yml@v1
+    secrets: inherit
+    with:
+      game-endpoint: ${{ inputs.game-endpoint }}
+      game-versions: ${{ inputs.game-versions }}
+      relations: ${{ inputs.relations }}
+      artifact-id: "nitrado-performance-saver"
+

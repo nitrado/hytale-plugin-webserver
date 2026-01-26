@@ -1,0 +1,20 @@
+name: Maven Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      java-version:
+        description: "Java version for Maven publishing"
+        type: string
+        default: "25"
+
+permissions:
+  contents: read
+
+jobs:
+  maven-publish:
+    uses: nitrado/hytale-plugin-workflows/.github/workflows/maven-publish.yml@v1
+    secrets: inherit
+    with:
+      java-version: ${{ inputs.java-version }}
+

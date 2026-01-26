@@ -1,0 +1,20 @@
+name: Modtale Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      game-versions:
+        description: "Hytale game versions (comma-separated)"
+        type: string
+        default: "1.0-SNAPSHOT"
+
+permissions:
+  contents: read
+
+jobs:
+  modtale-publish:
+    uses: nitrado/hytale-plugin-workflows/.github/workflows/modtale-publish.yml@v1
+    secrets: inherit
+    with:
+      game-versions: ${{ inputs.game-versions }}
+
