@@ -161,6 +161,14 @@
                                         <exclude>META-INF/*.RSA</exclude>
                                     </excludes>
                                 </filter>
+                                <filter>
+                                    <artifact>ognl:ognl</artifact>
+                                    <excludes>
+                                        <!-- Exclude deprecated security manager classes flagged by security scanners -->
+                                        <exclude>ognl/security/OgnlSecurityManagerFactory.class</exclude>
+                                        <exclude>ognl/security/OgnlSecurityManager.class</exclude>
+                                    </excludes>
+                                </filter>
                             </filters>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
