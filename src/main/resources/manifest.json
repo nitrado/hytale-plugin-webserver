@@ -2,6 +2,7 @@
   "Group": "Nitrado",
   "Name": "WebServer",
   "Version": "1.0.0",
+  "ServerVersion": "2026.02.17-255364b8e",
   "Authors": [
     {
       "Name": "André Becker",
@@ -16,3 +17,4 @@
     "Hytale:PermissionsModule": "*"
   }
 }
+
