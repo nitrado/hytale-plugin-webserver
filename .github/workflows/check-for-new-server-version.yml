@@ -8,5 +8,6 @@ on:
 jobs:
   check:
     uses: nitrado/hytale-plugin-workflows/.github/workflows/rebuild-on-new-server-version.yml@v2
+    secrets: inherit
     with:
       artifact-id: nitrado-webserver
