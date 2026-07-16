@@ -33,7 +33,7 @@ public class CodeCreateCommand extends AbstractCommand {
             return CompletableFuture.completedFuture(null);
         }
 
-        var code = this.loginCodeStore.createCode(context.sender().getUuid(), context.sender().getDisplayName());
+        var code = this.loginCodeStore.createCode(context.sender().getUuid(), context.sender().getUsername());
 
         context.sendMessage(Message.raw("Your web server login code is: " + code));
         context.sendMessage(Message.raw("Do not share this code with anybody."));
