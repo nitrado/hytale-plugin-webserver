@@ -10,7 +10,7 @@
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
-        <hytale.server.version>2026.01.24-6e2d4fc36</hytale.server.version>
+        <hytale.server.version>0.5.6</hytale.server.version>
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
